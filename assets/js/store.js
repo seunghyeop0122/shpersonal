@@ -83,6 +83,7 @@ const map = {
         period: r.period,
         title: r.title || '',
         detail: r.detail || '',
+        goalDate: r.goal_date || '',
         isDone: !!r.is_done,
         createdAt: r.created_at || ''
       };
@@ -93,6 +94,7 @@ const map = {
       if ('period' in g) out.period = g.period;
       if ('title' in g) out.title = g.title;
       if ('detail' in g) out.detail = g.detail || '';
+      if ('goalDate' in g) out.goal_date = g.goalDate ? g.goalDate : null;
       if ('isDone' in g) out.is_done = !!g.isDone;
       return out;
     }

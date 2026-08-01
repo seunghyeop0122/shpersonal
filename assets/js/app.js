@@ -139,6 +139,26 @@ function fmtDate(value) {
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 
+function todayStr() {
+  return fmtDate(new Date());
+}
+
+/* 목표에 표시할 날짜: 직접 지정한 날짜 우선, 없으면 추가한 날짜 */
+function goalDateOf(g) {
+  return fmtDate(g.goalDate || g.createdAt);
+}
+
+/* 최신순 (날짜 내림차순, 같으면 나중에 추가한 것이 위로) */
+function byNewest(a, b) {
+  const da = goalDateOf(a);
+  const db = goalDateOf(b);
+  if (da !== db) return da < db ? 1 : -1;
+  const ca = a.createdAt || '';
+  const cb = b.createdAt || '';
+  if (ca !== cb) return ca < cb ? 1 : -1;
+  return 0;
+}
+
 function statusBadge(status) {
   const cls = status === '진행중' ? 'badge badge-on' : 'badge badge-done';
   return '<span class="' + cls + '">' + esc(status || '—') + '</span>';
@@ -857,40 +877,60 @@ function pageGoalPeriod(periodKey) {
     );
   }
 
-  const list = goalsOf(meta.key);
+  const list = goalsOf(meta.key).slice().sort(byNewest); // 최신순
 
-  const rows = list.length
-    ? '<div class="goal-list">' +
-        list
-          .map(function (g) {
-            const added = fmtDate(g.createdAt);
-            return (
-              '<div class="goal-row' + (g.isDone ? ' is-done' : '') + '">' +
-                '<input type="checkbox" class="goal-check"' +
-                  (g.isDone ? ' checked' : '') +
-                  (canEdit()
-                    ? ' data-act="goal-toggle" data-id="' + esc(g.id) + '"'
-                    : ' disabled') +
-                  ' aria-label="' + esc(g.title) + ' 완료">' +
-                '<div class="goal-body">' +
-                  '<div class="goal-row-top">' +
-                    '<span class="goal-name">' + esc(g.title) + '</span>' +
-                    (canEdit()
-                      ? '<span class="goal-controls">' +
-                          btn('goal-edit', '수정', { data: { id: g.id } }) +
-                          btn('goal-del', '삭제', { data: { id: g.id }, cls: 'btn-sm btn-quiet' }) +
-                        '</span>'
-                      : '') +
-                  '</div>' +
-                  (added ? '<div class="goal-date">추가 ' + esc(added) + '</div>' : '') +
-                  (g.detail ? '<p class="goal-detail">' + esc(g.detail) + '</p>' : '') +
-                '</div>' +
-              '</div>'
-            );
-          })
-          .join('') +
+  const goalRow = function (g) {
+    const date = goalDateOf(g);
+    return (
+      '<div class="goal-row' + (g.isDone ? ' is-done' : '') + '">' +
+        '<input type="checkbox" class="goal-check"' +
+          (g.isDone ? ' checked' : '') +
+          (canEdit()
+            ? ' data-act="goal-toggle" data-id="' + esc(g.id) + '"'
+            : ' disabled') +
+          ' aria-label="' + esc(g.title) + ' 완료">' +
+        '<div class="goal-body">' +
+          '<div class="goal-row-top">' +
+            '<span class="goal-name">' + esc(g.title) + '</span>' +
+            (canEdit()
+              ? '<span class="goal-controls">' +
+                  btn('goal-edit', '수정', { data: { id: g.id } }) +
+                  btn('goal-del', '삭제', { data: { id: g.id }, cls: 'btn-sm btn-quiet' }) +
+                '</span>'
+              : '') +
+          '</div>' +
+          (date ? '<div class="goal-date">' + esc(date) + '</div>' : '') +
+          (g.detail ? '<p class="goal-detail">' + esc(g.detail) + '</p>' : '') +
+        '</div>' +
       '</div>'
-    : '<div class="empty">이 기간의 목표가 없습니다.</div>';
+    );
+  };
+
+  const listHtml = function (items, emptyText) {
+    return items.length
+      ? '<div class="goal-list">' + items.map(goalRow).join('') + '</div>'
+      : '<div class="empty">' + esc(emptyText) + '</div>';
+  };
+
+  let rows;
+  if (meta.key === 'daily') {
+    /* Daily 는 미완료 / 완료 두 칸으로 나눠서 표시 */
+    const todo = list.filter(function (g) { return !g.isDone; });
+    const done = list.filter(function (g) { return g.isDone; });
+    rows =
+      '<div class="goal-columns">' +
+        '<section class="goal-column">' +
+          '<h2 class="column-head">미완료 <span class="column-count">' + todo.length + '</span></h2>' +
+          listHtml(todo, '남은 목표가 없습니다.') +
+        '</section>' +
+        '<section class="goal-column">' +
+          '<h2 class="column-head">완료 <span class="column-count">' + done.length + '</span></h2>' +
+          listHtml(done, '아직 완료한 목표가 없습니다.') +
+        '</section>' +
+      '</div>';
+  } else {
+    rows = listHtml(list, '이 기간의 목표가 없습니다.');
+  }
 
   return (
     '<a class="back-link" href="#/goals">' + ICONS.back + ' 목표 관리</a>' +
@@ -920,6 +960,7 @@ function pageGoalPeriod(periodKey) {
 function goalFields() {
   return [
     { name: 'title', label: '목표', required: true, placeholder: '예: 알고리즘 문제 풀기' },
+    { name: 'goalDate', label: '날짜', type: 'date', hint: '비워두면 추가한 날짜로 표시됩니다' },
     {
       name: 'detail',
       label: '목표 디테일',
@@ -1006,10 +1047,12 @@ async function handleAction(el) {
     openForm({
       title: (meta ? meta.label + ' ' : '') + '목표 추가',
       fields: goalFields(),
+      values: { goalDate: todayStr() },
       onSubmit: async function (v) {
         await goalsApi.create({
           period: period,
           title: v.title,
+          goalDate: v.goalDate,
           detail: v.detail,
           isDone: false
         });
@@ -1028,7 +1071,7 @@ async function handleAction(el) {
       fields: goalFields(),
       values: g,
       onSubmit: async function (v) {
-        await goalsApi.update(id, { title: v.title, detail: v.detail });
+        await goalsApi.update(id, { title: v.title, goalDate: v.goalDate, detail: v.detail });
         render();
         toast('저장했습니다.');
       }

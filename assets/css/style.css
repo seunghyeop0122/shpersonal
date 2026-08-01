@@ -311,6 +311,38 @@ a { color: inherit; text-decoration: none; }
   text-align: right;
 }
 
+/* Daily: 미완료 / 완료 2단 */
+.goal-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 28px;
+  align-items: start;
+}
+
+.goal-column { min-width: 0; }
+
+.column-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+  padding: 0 0 8px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.column-count {
+  font-weight: 500;
+  color: var(--text-faint);
+  background: rgba(55, 53, 47, 0.06);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 목표 관리 페이지 리스트 (체크리스트) */
 .goal-list { display: flex; flex-direction: column; gap: 2px; }
 
@@ -953,6 +985,8 @@ table.tbl tbody tr.clickable:hover { background: var(--hover-bg); }
 
   /* 터치 기기에서는 hover가 없으므로 수정/삭제를 항상 보이게 */
   .goal-row .goal-controls { opacity: 1; }
+
+  .goal-columns { grid-template-columns: 1fr; gap: 24px; }
 }
 
 @media (hover: none) {
