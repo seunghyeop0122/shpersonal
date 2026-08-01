@@ -9,6 +9,7 @@ import {
   reload,
   canEdit,
   isSupabaseEnabled,
+  isConfigured,
   signInKakao,
   signOut,
   userLabel,
@@ -1279,9 +1280,56 @@ async function handleAction(el) {
 }
 
 /* =========================================================
+   로그인 화면 (게이트)
+   ========================================================= */
+function gateHtml(mode) {
+  const body =
+    mode === 'loading'
+      ? '<p class="gate-desc">불러오는 중…</p>'
+      : '<p class="gate-desc">취업 준비 기록을 보려면 로그인해 주세요.</p>' +
+        '<button type="button" class="btn btn-kakao gate-btn" data-act="signin">카카오로 로그인</button>' +
+        (state.notice ? '<p class="gate-note gate-error">' + esc(state.notice) + '</p>' : '') +
+        '<p class="gate-note">본인 계정으로만 열람할 수 있습니다.</p>';
+
+  return (
+    '<div class="gate-card">' +
+      '<div class="gate-brand">' +
+        '<span class="site-mark"></span>' +
+        '<span class="gate-title">SH site</span>' +
+      '</div>' +
+      body +
+    '</div>'
+  );
+}
+
+/* 로그인 화면을 보여줄지 판단
+   - 설정이 채워져 있고 아직 로그인 전이면 막는다
+   - 설정 전(로컬 개발 등)에는 예시 데이터를 그대로 보여준다 */
+function gateMode() {
+  if (!isConfigured()) return null;
+  if (state.user) return null;
+  return state.ready ? 'login' : 'loading';
+}
+
+/* =========================================================
    라우터
    ========================================================= */
 function render() {
+  const gate = document.getElementById('gate');
+  const layout = document.getElementById('layout');
+  const mode = gateMode();
+
+  if (mode) {
+    gate.innerHTML = gateHtml(mode);
+    gate.hidden = false;
+    layout.hidden = true;
+    return;
+  }
+
+  gate.hidden = true;
+  gate.innerHTML = '';
+  layout.hidden = false;
+
   const hash = location.hash || '#/home';
   const view = document.getElementById('view');
   let html = '';
@@ -1358,8 +1406,14 @@ window.addEventListener('hashchange', function () {
 /* ---------- 시작 ---------- */
 (async function bootstrap() {
   if (!location.hash) location.hash = '#/home';
-  await reload(); // 예시 데이터로 즉시 1차 렌더 (Supabase 로드를 기다리지 않음)
-  render();
+
+  if (isConfigured()) {
+    render(); // 로그인 확인 전에는 로딩 화면
+  } else {
+    await reload(); // 설정 전이면 예시 데이터로 바로 렌더
+    render();
+  }
+
   await init(function () { render(); });
   render();
 })();

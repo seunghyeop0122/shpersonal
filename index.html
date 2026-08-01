@@ -7,7 +7,10 @@
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body>
-  <div class="layout">
+  <!-- 로그인 화면 (로그인 전에는 이 화면만 보입니다) -->
+  <div class="gate" id="gate" hidden></div>
+
+  <div class="layout" id="layout" hidden>
     <!-- 사이드바: 메뉴는 app.js에서 렌더링 (산업 분석 하위 항목 자동 생성) -->
     <aside class="sidebar">
       <div class="sidebar-head">

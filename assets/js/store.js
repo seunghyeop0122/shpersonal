@@ -40,6 +40,11 @@ export function isSupabaseEnabled() {
   return !!sb;
 }
 
+/* supabase-js 로드를 기다리지 않고 "설정이 채워져 있는지"만 즉시 판단 */
+export function isConfigured() {
+  return !!readConfig();
+}
+
 export function canEdit() {
   return !!sb && !!state.user;
 }
