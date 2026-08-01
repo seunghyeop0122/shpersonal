@@ -44,6 +44,15 @@ export function canEdit() {
   return !!sb && !!state.user;
 }
 
+/* 로그인 토큰이 유효하지 않을 때 나는 오류인지 판별
+   (예: "JWT issued at future", "JWT expired", PGRST301) */
+function isTokenError(e) {
+  const text = [e && e.message, e && e.hint, e && e.details, e && e.code]
+    .filter(Boolean)
+    .join(' ');
+  return /jwt|token|pgrst301|issued at future|expired/i.test(text);
+}
+
 /* ---------- 시드(예시) 데이터 ---------- */
 function seedGoals() {
   return typeof GOALS !== 'undefined' ? GOALS.map(function (g) { return Object.assign({}, g); }) : [];
@@ -228,7 +237,16 @@ export async function reload() {
       return;
     } catch (e) {
       console.error('[store] 데이터를 불러오지 못했습니다', e);
-      state.notice = '데이터를 불러오지 못했습니다: ' + (e.message || e);
+
+      /* 토큰 문제(만료·시각 불일치 등)는 세션을 정리하고 다시 로그인하도록 안내 */
+      if (isTokenError(e)) {
+        try { await sb.auth.signOut(); } catch (_) { /* 이미 끊긴 세션 */ }
+        state.user = null;
+        state.notice =
+          '로그인 세션이 유효하지 않아 로그아웃했습니다. 왼쪽 아래에서 다시 로그인해 주세요.';
+      } else {
+        state.notice = '데이터를 불러오지 못했습니다: ' + (e.message || e);
+      }
     }
   }
 

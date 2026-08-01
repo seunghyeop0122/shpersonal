@@ -912,25 +912,20 @@ function pageGoalPeriod(periodKey) {
       : '<div class="empty">' + esc(emptyText) + '</div>';
   };
 
-  let rows;
-  if (meta.key === 'daily') {
-    /* Daily 는 미완료 / 완료 두 칸으로 나눠서 표시 */
-    const todo = list.filter(function (g) { return !g.isDone; });
-    const done = list.filter(function (g) { return g.isDone; });
-    rows =
-      '<div class="goal-columns">' +
-        '<section class="goal-column">' +
-          '<h2 class="column-head">미완료 <span class="column-count">' + todo.length + '</span></h2>' +
-          listHtml(todo, '남은 목표가 없습니다.') +
-        '</section>' +
-        '<section class="goal-column">' +
-          '<h2 class="column-head">완료 <span class="column-count">' + done.length + '</span></h2>' +
-          listHtml(done, '아직 완료한 목표가 없습니다.') +
-        '</section>' +
-      '</div>';
-  } else {
-    rows = listHtml(list, '이 기간의 목표가 없습니다.');
-  }
+  /* 왼쪽 미완료 / 오른쪽 완료 두 칸 (모든 기간 공통) */
+  const todo = list.filter(function (g) { return !g.isDone; });
+  const done = list.filter(function (g) { return g.isDone; });
+  const rows =
+    '<div class="goal-columns">' +
+      '<section class="goal-column">' +
+        '<h2 class="column-head">미완료 <span class="column-count">' + todo.length + '</span></h2>' +
+        listHtml(todo, '남은 목표가 없습니다.') +
+      '</section>' +
+      '<section class="goal-column">' +
+        '<h2 class="column-head">완료 <span class="column-count">' + done.length + '</span></h2>' +
+        listHtml(done, '아직 완료한 목표가 없습니다.') +
+      '</section>' +
+    '</div>';
 
   return (
     '<a class="back-link" href="#/goals">' + ICONS.back + ' 목표 관리</a>' +
