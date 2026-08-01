@@ -13,6 +13,7 @@
    ========================================================= */
 
 window.SUPABASE_CONFIG = {
-  url: 'https://YOUR-PROJECT-REF.supabase.co',
-  anonKey: 'YOUR-ANON-KEY'
+  url: 'https://koepswciicunwiiffmkz.supabase.co',
+  anonKey:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtvZXBzd2NpaWN1bndpaWZmbWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjI5NjgsImV4cCI6MjEwMDk5ODk2OH0.93Eu_V0dOcgf4l0CqZJrw1FEqV14-bCDFCqAmt4bFis'
 };
