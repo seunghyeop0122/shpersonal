@@ -8,13 +8,15 @@
 
 ```
 .
-├── index.html
+├── index.html                   # 로그인 페이지 (1단계 로그인 → 2단계 환영)
+├── app.html                     # 사이트 본문 (로그인해야 열림)
 ├── .nojekyll
 ├── assets/
 │   ├── css/style.css
 │   └── js/
 │       ├── supabase-config.js   # ← Supabase URL / anon key (여기만 채우면 됨)
 │       ├── store.js             # 데이터 레이어 (Supabase CRUD + 예시 데이터 폴백)
+│       ├── login.js             # 로그인 페이지 전용
 │       └── app.js               # 라우팅 · 렌더링 · 편집 UI
 ├── data/                        # 예시 데이터 (로그인 전 화면 / 초기 데이터 넣기용)
 │   ├── companies.js  industries.js  jobs.js  goals.js
@@ -26,14 +28,17 @@
 
 ## 페이지
 
+사이트 주소는 `/`(로그인) → `/app.html`(본문) 두 페이지로 나뉩니다.
+로그인하지 않은 채 `/app.html` 로 들어오면 로그인 페이지로 되돌아갑니다.
+
 | 메뉴 | 주소 | 편집 가능한 것 |
 |---|---|---|
-| 홈 | `#/home` | (구글 캘린더 + 기간별 진행률 카드) |
-| 채용공고 | `#/jobs` | 공고 추가 · 수정 · 삭제 |
-| 지원 회사 | `#/companies` | 회사 추가 · 수정 · 삭제 |
-| 회사 상세 | `#/company/:id` | 기본 정보, 일정, 회사/산업 분석, 면접 후기 |
-| 산업 분석 | `#/industries` → `#/industry/:이름` | 4개 섹션 본문 |
-| 목표 관리 | `#/goals` → `#/goals/daily` 등 | 목표 추가 · 수정 · 삭제, 체크박스로 완료 표시 |
+| 홈 | `app.html#/home` | (구글 캘린더 + 기간별 진행률 카드) |
+| 채용공고 | `app.html#/jobs` | 공고 추가 · 수정 · 삭제 |
+| 지원 회사 | `app.html#/companies` | 회사 추가 · 수정 · 삭제 |
+| 회사 상세 | `app.html#/company/:id` | 기본 정보, 일정, 회사/산업 분석, 면접 후기 |
+| 산업 분석 | `app.html#/industries` → `#/industry/:이름` | 4개 섹션 본문 |
+| 목표 관리 | `app.html#/goals` → `#/goals/daily` 등 | 목표 추가 · 수정 · 삭제, 체크박스로 완료 표시 |
 
 산업군 목록은 지원 회사의 `산업군` 값에서 자동으로 생성됩니다 — 새 산업군을 쓰면
 사이드바와 목록에 자동으로 늘어납니다.

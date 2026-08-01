@@ -3,39 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SH site</title>
+  <title>로그인 · SH site</title>
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body>
-  <!-- 로그인 화면 (로그인 전에는 이 화면만 보입니다) -->
-  <div class="gate" id="gate" hidden></div>
+  <!-- 로그인 페이지. 로그인하면 환영 화면이 뜨고, 거기서 ./app.html 로 이동합니다. -->
+  <div class="gate" id="gate"></div>
 
-  <div class="layout" id="layout" hidden>
-    <!-- 사이드바: 메뉴는 app.js에서 렌더링 (산업 분석 하위 항목 자동 생성) -->
-    <aside class="sidebar">
-      <div class="sidebar-head">
-        <span class="site-mark"></span>
-        <span class="site-title">SH site</span>
-      </div>
-      <nav class="sidebar-nav" id="nav"></nav>
-      <div class="authbar" id="authbar"></div>
-    </aside>
-
-    <main class="main">
-      <div class="page" id="view"></div>
-    </main>
-  </div>
-
-  <!-- Supabase 연결 설정 (URL / anon key) -->
   <script src="./assets/js/supabase-config.js"></script>
-
-  <!-- 예시 데이터: Supabase 설정 전이나 로그아웃 상태에서 읽기 전용으로 표시됩니다 -->
-  <script src="./data/companies.js"></script>
-  <script src="./data/industries.js"></script>
-  <script src="./data/jobs.js"></script>
   <script src="./data/goals.js"></script>
-
-  <!-- 앱 (ES 모듈 → 로컬에서 열 때는 file:// 이 아니라 로컬 서버가 필요합니다) -->
-  <script type="module" src="./assets/js/app.js"></script>
+  <script type="module" src="./assets/js/login.js"></script>
 </body>
 </html>
