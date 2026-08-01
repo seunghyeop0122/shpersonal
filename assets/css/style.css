@@ -696,6 +696,56 @@ table.tbl tbody tr.clickable:hover { background: var(--hover-bg); }
   margin-top: 16px;
 }
 
+/* 2단계: 환영 화면 */
+.gate-welcome { padding: 40px 32px 28px; }
+
+.gate-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 18px;
+  border: 1px solid var(--border);
+}
+
+.gate-avatar-blank { background: rgba(55, 53, 47, 0.07); }
+
+.gate-hello {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin: 0 0 4px;
+}
+
+.gate-username {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.gate-summary {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 22px;
+}
+
+.gate-link {
+  display: block;
+  margin: 14px auto 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-faint);
+  background: none;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gate-link:hover { color: var(--text-muted); }
+
 /* ---------------------------------------------------------
    로그인 바 (사이드바 하단)
    --------------------------------------------------------- */

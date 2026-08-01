@@ -1017,7 +1017,13 @@ async function handleAction(el) {
     }
     return;
   }
+  if (act === 'enter') {
+    setEntered(true);
+    render();
+    return;
+  }
   if (act === 'signout') {
+    setEntered(false);
     await signOut();
     return;
   }
@@ -1282,33 +1288,89 @@ async function handleAction(el) {
 /* =========================================================
    로그인 화면 (게이트)
    ========================================================= */
-function gateHtml(mode) {
-  const body =
-    mode === 'loading'
-      ? '<p class="gate-desc">불러오는 중…</p>'
-      : '<p class="gate-desc">취업 준비 기록을 보려면 로그인해 주세요.</p>' +
-        '<button type="button" class="btn btn-kakao gate-btn" data-act="signin">카카오로 로그인</button>' +
-        (state.notice ? '<p class="gate-note gate-error">' + esc(state.notice) + '</p>' : '') +
-        '<p class="gate-note">본인 계정으로만 열람할 수 있습니다.</p>';
+/* 로그인 후 "사이트로 들어가기"를 눌렀는지 (탭 단위로 기억) */
+const ENTERED_KEY = 'sh-entered';
 
+function hasEntered() {
+  try {
+    return sessionStorage.getItem(ENTERED_KEY) === '1';
+  } catch (e) {
+    return true; // sessionStorage를 못 쓰는 환경이면 환영 화면을 건너뜁니다
+  }
+}
+
+function setEntered(v) {
+  try {
+    if (v) sessionStorage.setItem(ENTERED_KEY, '1');
+    else sessionStorage.removeItem(ENTERED_KEY);
+  } catch (e) { /* 무시 */ }
+}
+
+/* 1단계: 로그인 화면 */
+function loginHtml() {
   return (
     '<div class="gate-card">' +
       '<div class="gate-brand">' +
         '<span class="site-mark"></span>' +
         '<span class="gate-title">SH site</span>' +
       '</div>' +
-      body +
+      '<p class="gate-desc">취업 준비 기록을 보려면 로그인해 주세요.</p>' +
+      '<button type="button" class="btn btn-kakao gate-btn" data-act="signin">카카오로 로그인</button>' +
+      (state.notice ? '<p class="gate-note gate-error">' + esc(state.notice) + '</p>' : '') +
+      '<p class="gate-note">본인 계정으로만 열람할 수 있습니다.</p>' +
     '</div>'
   );
 }
 
-/* 로그인 화면을 보여줄지 판단
-   - 설정이 채워져 있고 아직 로그인 전이면 막는다
-   - 설정 전(로컬 개발 등)에는 예시 데이터를 그대로 보여준다 */
+/* 2단계: 환영 화면 */
+function welcomeHtml() {
+  const meta = (state.user && state.user.user_metadata) || {};
+  const avatar = meta.avatar_url || meta.picture || '';
+  const total = state.goals.length;
+  const done = state.goals.filter(function (g) { return g.isDone; }).length;
+
+  return (
+    '<div class="gate-card gate-welcome">' +
+      (avatar
+        ? '<img class="gate-avatar" src="' + esc(avatar) + '" alt="" referrerpolicy="no-referrer">'
+        : '<div class="gate-avatar gate-avatar-blank"></div>') +
+      '<p class="gate-hello">환영합니다</p>' +
+      '<p class="gate-username">' + esc(userLabel()) + '님</p>' +
+      (total
+        ? '<p class="gate-summary">목표 ' + total + '개 중 ' + done + '개 완료</p>'
+        : '<p class="gate-summary">오늘의 목표를 등록해 보세요</p>') +
+      '<button type="button" class="btn btn-primary gate-btn" data-act="enter">사이트로 들어가기</button>' +
+      '<button type="button" class="gate-link" data-act="signout">다른 계정으로 로그인</button>' +
+    '</div>'
+  );
+}
+
+function gateHtml(mode) {
+  if (mode === 'loading') {
+    return (
+      '<div class="gate-card">' +
+        '<div class="gate-brand">' +
+          '<span class="site-mark"></span>' +
+          '<span class="gate-title">SH site</span>' +
+        '</div>' +
+        '<p class="gate-desc">불러오는 중…</p>' +
+      '</div>'
+    );
+  }
+  return mode === 'welcome' ? welcomeHtml() : loginHtml();
+}
+
+/* 어떤 화면을 보여줄지 판단
+   - 설정 전(로컬 개발 등)에는 예시 데이터를 그대로 보여준다
+   - 로그인 전 → 로그인 화면 / 로그인 직후 → 환영 화면 */
 function gateMode() {
   if (!isConfigured()) return null;
-  if (state.user) return null;
-  return state.ready ? 'login' : 'loading';
+  if (!state.ready) return 'loading';
+  if (!state.user) {
+    setEntered(false);
+    return 'login';
+  }
+  return hasEntered() ? null : 'welcome';
 }
 
 /* =========================================================
