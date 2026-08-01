@@ -82,9 +82,9 @@ const map = {
         id: r.id,
         period: r.period,
         title: r.title || '',
-        target: Number(r.target) || 0,
-        current: Number(r.current_value) || 0,
-        unit: r.unit || ''
+        detail: r.detail || '',
+        isDone: !!r.is_done,
+        createdAt: r.created_at || ''
       };
     },
     /* 부분 수정(patch)에도 쓰이므로 전달된 키만 내보냅니다 */
@@ -92,9 +92,8 @@ const map = {
       const out = {};
       if ('period' in g) out.period = g.period;
       if ('title' in g) out.title = g.title;
-      if ('target' in g) out.target = Number(g.target) || 0;
-      if ('current' in g) out.current_value = Number(g.current) || 0;
-      if ('unit' in g) out.unit = g.unit || '';
+      if ('detail' in g) out.detail = g.detail || '';
+      if ('isDone' in g) out.is_done = !!g.isDone;
       return out;
     }
   },

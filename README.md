@@ -33,7 +33,7 @@
 | 지원 회사 | `#/companies` | 회사 추가 · 수정 · 삭제 |
 | 회사 상세 | `#/company/:id` | 기본 정보, 일정, 회사/산업 분석, 면접 후기 |
 | 산업 분석 | `#/industries` → `#/industry/:이름` | 4개 섹션 본문 |
-| 목표 관리 | `#/goals` → `#/goals/daily` 등 | 목표 추가 · 수정 · 삭제, `+`/`−`로 진행률 조정 |
+| 목표 관리 | `#/goals` → `#/goals/daily` 등 | 목표 추가 · 수정 · 삭제, 체크박스로 완료 표시 |
 
 산업군 목록은 지원 회사의 `산업군` 값에서 자동으로 생성됩니다 — 새 산업군을 쓰면
 사이드바와 목록에 자동으로 늘어납니다.
@@ -103,6 +103,10 @@ create policy "own rows" on public.jobs       for all using (auth.uid() = user_i
 create policy "own rows" on public.companies  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own rows" on public.industries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 ```
+
+이후 스키마 변경분은 `supabase/migrations/` 에 파일로 쌓입니다. SQL Editor에서 직접
+만드는 경우에는 그 폴더의 파일들도 **번호 순서대로** 실행해 주세요.
+(현재: `20260801000000_init.sql` → `20260802000000_goals_checklist.sql`)
 
 ### 1-2. 카카오 로그인 연결
 1. [Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → **애플리케이션 추가하기**
