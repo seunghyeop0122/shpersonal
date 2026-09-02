@@ -18,6 +18,7 @@ import {
   goalsApi,
   jobsApi,
   companiesApi,
+  projectsApi,
   saveIndustry,
   industryByName
 } from './store.js';
@@ -43,6 +44,25 @@ const PERIODS = [
   { key: 'yearly', label: 'Yearly', ko: '연간' }
 ];
 
+/* 프로젝트 진행 상태 */
+const PROJECT_STATUSES = ['진행중', '보류', '완료'];
+
+/* 태스크 상태 (클릭하면 이 순서로 순환) */
+const TASK_STATUSES = [
+  { key: 'todo', label: '진행 전', cls: 'ts-todo' },
+  { key: 'doing', label: '진행 중', cls: 'ts-doing' },
+  { key: 'done', label: '완료', cls: 'ts-done' },
+  { key: 'blocked', label: '막힘', cls: 'ts-blocked' }
+];
+
+/* 태스크 우선순위 */
+const PRIORITIES = [
+  { key: '', label: '—', cls: 'pr-none' },
+  { key: 'high', label: '높음', cls: 'pr-high' },
+  { key: 'mid', label: '중간', cls: 'pr-mid' },
+  { key: 'low', label: '낮음', cls: 'pr-low' }
+];
+
 /* ---------- 아이콘 ---------- */
 const ICONS = {
   home: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>',
@@ -50,6 +70,7 @@ const ICONS = {
   companies: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18" rx="1.5"/><path d="M14 9h6v12h-6"/><path d="M7 7h4M7 11h4M7 15h4"/></svg>',
   industry: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l6 4V10l6 4V6l4-2v16z"/></svg>',
   goals: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  projects: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7.5 13h5M7.5 16.5h8"/></svg>',
   dot: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12"/></svg>',
   back: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
 };
@@ -167,6 +188,73 @@ function statusBadge(status) {
 
 function periodMeta(key) {
   return PERIODS.filter(function (p) { return p.key === key; })[0] || null;
+}
+
+/* ---------- 프로젝트 ---------- */
+function uid() {
+  return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function taskStatusMeta(key) {
+  return TASK_STATUSES.filter(function (s) { return s.key === key; })[0] || TASK_STATUSES[0];
+}
+
+function priorityMeta(key) {
+  return PRIORITIES.filter(function (p) { return p.key === (key || ''); })[0] || PRIORITIES[0];
+}
+
+function tasksOf(project) {
+  return Array.isArray(project && project.tasks) ? project.tasks : [];
+}
+
+function projectDone(project) {
+  return tasksOf(project).filter(function (t) { return t.status === 'done'; }).length;
+}
+
+function projectProgress(project) {
+  const list = tasksOf(project);
+  if (!list.length) return 0;
+  return pct(projectDone(project), list.length);
+}
+
+function sortedProjects() {
+  const rank = { '진행중': 0, '보류': 1, '완료': 2 };
+  return state.projects.slice().sort(function (a, b) {
+    const ra = rank[a.status] == null ? 0 : rank[a.status];
+    const rb = rank[b.status] == null ? 0 : rank[b.status];
+    if (ra !== rb) return ra - rb;
+    return byKo(a.name, b.name);
+  });
+}
+
+function projectById(id) {
+  return state.projects.filter(function (x) { return String(x.id) === String(id); })[0] || null;
+}
+
+/* 태스크 상태 뱃지: 로그인 상태면 클릭으로 다음 상태로 순환하는 버튼 */
+function taskStatusBadge(projectId, task) {
+  const m = taskStatusMeta(task.status);
+  const inner = '<span class="tbadge ' + m.cls + '">' + esc(m.label) + '</span>';
+  if (!canEdit()) return inner;
+  return (
+    '<button type="button" class="tbadge-btn" data-act="task-status" ' +
+    'data-id="' + esc(projectId) + '" data-task="' + esc(task.id) + '" title="클릭하면 상태가 바뀝니다">' +
+      '<span class="tbadge ' + m.cls + '">' + esc(m.label) + '</span>' +
+    '</button>'
+  );
+}
+
+function priorityBadge(key) {
+  const m = priorityMeta(key);
+  if (!m.key) return '<span class="cell-muted">—</span>';
+  return '<span class="tbadge ' + m.cls + '">' + esc(m.label) + '</span>';
+}
+
+function projectStatusBadge(status) {
+  const cls =
+    status === '완료' ? 'badge badge-done' :
+    status === '보류' ? 'badge' : 'badge badge-on';
+  return '<span class="' + cls + '">' + esc(status || '진행중') + '</span>';
 }
 
 /* 편집 버튼: 로그인 상태에서만 렌더 */
@@ -345,13 +433,17 @@ function navConfig() {
   const goalChildren = PERIODS.map(function (p) {
     return { label: p.label, route: '#/goals/' + p.key, icon: ICONS.dot };
   });
+  const projectChildren = sortedProjects().map(function (p) {
+    return { label: p.name, route: '#/project/' + encodeURIComponent(p.id), icon: ICONS.dot };
+  });
 
   return [
     { label: '홈', route: '#/home', icon: ICONS.home },
     { label: '채용공고', route: '#/jobs', icon: ICONS.jobs },
     { label: '지원 회사', route: '#/companies', icon: ICONS.companies },
     { label: '산업 분석', route: '#/industries', icon: ICONS.industry, children: industryChildren },
-    { label: '목표 관리', route: '#/goals', icon: ICONS.goals, children: goalChildren }
+    { label: '목표 관리', route: '#/goals', icon: ICONS.goals, children: goalChildren },
+    { label: '프로젝트 관리', route: '#/projects', icon: ICONS.projects, children: projectChildren }
   ];
 }
 
@@ -359,6 +451,7 @@ function isActive(route, hash) {
   if (route === '#/companies') return hash.indexOf('#/companies') === 0 || hash.indexOf('#/company/') === 0;
   if (route === '#/industries') return hash.indexOf('#/industr') === 0;
   if (route === '#/goals') return hash.indexOf('#/goals') === 0;
+  if (route === '#/projects') return hash.indexOf('#/projects') === 0 || hash.indexOf('#/project/') === 0;
   if (route === '#/home') return hash === '#/home' || hash === '#/' || hash === '';
   return hash === route;
 }
@@ -370,7 +463,8 @@ function renderNav(hash) {
     const exactParent =
       hash === item.route ||
       (item.route === '#/home' && (hash === '' || hash === '#/')) ||
-      (item.route === '#/companies' && hash.indexOf('#/company/') === 0);
+      (item.route === '#/companies' && hash.indexOf('#/company/') === 0) ||
+      (item.route === '#/projects' && hash.indexOf('#/project/') === 0);
 
     html +=
       '<a class="nav-item' + (exactParent ? ' is-active' : '') + '" href="' + item.route + '">' +
@@ -951,6 +1045,158 @@ function pageGoalPeriod(periodKey) {
 }
 
 /* =========================================================
+   페이지: 프로젝트 관리 (목록)
+   ========================================================= */
+function pageProjects() {
+  const list = sortedProjects();
+
+  const cards = list
+    .map(function (p) {
+      const total = tasksOf(p).length;
+      const desc = (p.description || '').split('\n')[0];
+      return (
+        '<a class="goal-card project-card" href="#/project/' + encodeURIComponent(p.id) + '">' +
+          '<div class="project-card-top">' +
+            '<div class="card-title">' + esc(p.name) + '</div>' +
+            projectStatusBadge(p.status) +
+          '</div>' +
+          '<div class="card-meta">' +
+            projectDone(p) + ' / ' + total + ' 완료' +
+            (p.dueOn ? ' · 마감 ' + esc(p.dueOn) : '') +
+          '</div>' +
+          (desc ? '<p class="project-card-desc">' + esc(desc) + '</p>' : '') +
+          progressBar(projectProgress(p)) +
+        '</a>'
+      );
+    })
+    .join('');
+
+  return (
+    pageHead(
+      '프로젝트 관리',
+      '프로젝트',
+      '프로젝트별로 태스크 진행 상황을 확인합니다. 카드를 클릭하면 해당 프로젝트로 이동합니다.',
+      btn('proj-add', '+ 프로젝트 추가', { cls: 'btn-primary btn-sm' })
+    ) +
+    banner() +
+    (list.length
+      ? '<div class="goal-grid">' + cards + '</div>'
+      : '<div class="empty">아직 등록된 프로젝트가 없습니다.' +
+        (canEdit() ? ' 오른쪽 위 [+ 프로젝트 추가]로 시작해 보세요.' : '') + '</div>')
+  );
+}
+
+/* =========================================================
+   페이지: 프로젝트 상세 (태스크 보드)
+   ========================================================= */
+function pageProjectDetail(id) {
+  const p = projectById(id);
+  if (!p) {
+    return (
+      '<a class="back-link" href="#/projects">' + ICONS.back + ' 프로젝트 관리</a>' +
+      '<h1 class="page-title">찾을 수 없는 프로젝트</h1>' +
+      '<p class="page-desc">해당 프로젝트를 찾지 못했습니다.</p>'
+    );
+  }
+
+  const total = tasksOf(p).length;
+
+  /* 우선순위(높음→낮음) → 마감일 순, 완료는 항상 아래로 */
+  const prRank = { high: 0, mid: 1, low: 2, '': 3 };
+  const tasks = tasksOf(p).slice().sort(function (a, b) {
+    const ad = a.status === 'done';
+    const bd = b.status === 'done';
+    if (ad !== bd) return ad ? 1 : -1;
+    const ra = prRank[a.priority || ''];
+    const rb = prRank[b.priority || ''];
+    if (ra !== rb) return ra - rb;
+    if (!a.due && !b.due) return 0;
+    if (!a.due) return 1;
+    if (!b.due) return -1;
+    return a.due < b.due ? -1 : 1;
+  });
+
+  const rows = tasks
+    .map(function (t) {
+      const d = dday(t.due);
+      let dueCell;
+      if (!t.due) {
+        dueCell = '<span class="cell-muted">—</span>';
+      } else {
+        const label = d === null ? '' : d < 0 ? '지남' : d === 0 ? 'D-DAY' : 'D-' + d;
+        const cls = d !== null && d >= 0 && d <= 3 && t.status !== 'done' ? 'badge badge-urgent' : 'badge';
+        dueCell =
+          '<div class="nowrap">' + esc(t.due) + '</div>' +
+          (t.status === 'done' ? '' : '<span class="' + cls + '" style="margin-top:4px">' + label + '</span>');
+      }
+      return (
+        '<tr class="' + (t.status === 'done' ? 'task-done' : '') + '">' +
+          '<td class="cell-strong">' + esc(t.title) + '</td>' +
+          '<td class="nowrap">' + taskStatusBadge(p.id, t) + '</td>' +
+          '<td class="nowrap">' + priorityBadge(t.priority) + '</td>' +
+          '<td class="nowrap">' + dueCell + '</td>' +
+          '<td class="cell-memo">' + esc(t.memo || '') + '</td>' +
+          (canEdit()
+            ? '<td class="nowrap"><div class="row-actions">' +
+                btn('task-edit', '수정', { data: { id: p.id, task: t.id } }) +
+                btn('task-del', '삭제', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
+              '</div></td>'
+            : '') +
+        '</tr>'
+      );
+    })
+    .join('');
+
+  return (
+    '<a class="back-link" href="#/projects">' + ICONS.back + ' 프로젝트 관리</a>' +
+    banner() +
+    '<div class="page-head">' +
+      '<div>' +
+        '<div class="page-label">프로젝트 관리</div>' +
+        '<h1 class="page-title">' + esc(p.name) + '</h1>' +
+      '</div>' +
+      '<div class="page-actions">' + btn('proj-edit', '프로젝트 수정', { data: { id: p.id } }) + '</div>' +
+    '</div>' +
+    '<div class="meta-row">' +
+      projectStatusBadge(p.status) +
+      (p.startedOn ? '<span class="badge">시작 ' + esc(p.startedOn) + '</span>' : '') +
+      (p.dueOn ? '<span class="badge">마감 ' + esc(p.dueOn) + '</span>' : '') +
+    '</div>' +
+
+    (p.description ? '<p class="prose" style="margin-bottom:24px">' + esc(p.description) + '</p>' : '') +
+
+    '<div class="period-summary">' +
+      '<span class="period-summary-label">' + projectDone(p) + ' / ' + total + ' 완료</span>' +
+      progressBar(projectProgress(p)) +
+    '</div>' +
+
+    '<div class="section-head-row">' +
+      '<h2 class="section-head">태스크</h2>' +
+      (canEdit()
+        ? '<div class="section-actions">' +
+            btn('task-add', '+ 태스크 추가', { data: { id: p.id }, cls: 'btn-primary btn-sm' }) +
+          '</div>'
+        : '') +
+    '</div>' +
+
+    (total
+      ? '<div class="table-wrap"><table class="tbl">' +
+          '<thead><tr>' +
+            '<th style="min-width:200px">태스크</th>' +
+            '<th style="width:92px">상태</th>' +
+            '<th style="width:80px">우선순위</th>' +
+            '<th style="width:110px">마감일</th>' +
+            '<th style="width:220px">메모</th>' +
+            (canEdit() ? '<th style="width:92px"></th>' : '') +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table></div>'
+      : '<div class="empty">아직 태스크가 없습니다.' +
+        (canEdit() ? ' [+ 태스크 추가]로 하나씩 채워보세요.' : '') + '</div>')
+  );
+}
+
+/* =========================================================
    액션 (추가 / 수정 / 삭제)
    ========================================================= */
 function goalFields() {
@@ -986,6 +1232,43 @@ function companyFields() {
     { name: 'stage', label: '세부 단계', placeholder: '예: 1차 면접 대기' },
     { name: 'position', label: '지원 직무' }
   ];
+}
+
+function projectFields() {
+  return [
+    { name: 'name', label: '프로젝트 이름', required: true, placeholder: '예: 포트폴리오 웹사이트' },
+    { name: 'status', label: '진행 상태', type: 'select', options: PROJECT_STATUSES },
+    { name: 'startedOn', label: '시작일', type: 'date' },
+    { name: 'dueOn', label: '마감일', type: 'date', hint: '없으면 비워 두세요' },
+    { name: 'description', label: '설명', type: 'textarea', rows: 4 }
+  ];
+}
+
+function taskFields() {
+  return [
+    { name: 'title', label: '태스크', required: true, placeholder: '예: 메인 페이지 레이아웃' },
+    {
+      name: 'status', label: '상태', type: 'select',
+      options: TASK_STATUSES.map(function (s) { return s.label; })
+    },
+    {
+      name: 'priority', label: '우선순위', type: 'select',
+      options: PRIORITIES.map(function (p) { return p.label; })
+    },
+    { name: 'due', label: '마감일', type: 'date' },
+    { name: 'memo', label: '메모', type: 'textarea', rows: 3 }
+  ];
+}
+
+/* 폼의 라벨(한글) ↔ 저장 키 변환 */
+function taskStatusKeyFromLabel(label) {
+  const m = TASK_STATUSES.filter(function (s) { return s.label === label; })[0];
+  return m ? m.key : 'todo';
+}
+
+function priorityKeyFromLabel(label) {
+  const m = PRIORITIES.filter(function (p) { return p.label === label; })[0];
+  return m ? m.key : '';
 }
 
 async function toggleGoal(id) {
@@ -1278,6 +1561,163 @@ async function handleAction(el) {
     });
     return;
   }
+
+  /* ---- 프로젝트 ---- */
+  if (act === 'proj-add') {
+    openForm({
+      title: '프로젝트 추가',
+      fields: projectFields(),
+      values: { status: '진행중' },
+      onSubmit: async function (v) {
+        const created = await projectsApi.create({
+          name: v.name,
+          status: v.status,
+          startedOn: v.startedOn,
+          dueOn: v.dueOn,
+          description: v.description,
+          tasks: []
+        });
+        render();
+        toast('프로젝트를 추가했습니다.');
+        if (created && created.id) location.hash = '#/project/' + encodeURIComponent(created.id);
+      }
+    });
+    return;
+  }
+
+  if (act === 'proj-edit') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    openForm({
+      title: '프로젝트 수정',
+      fields: projectFields(),
+      values: p,
+      onSubmit: async function (v) {
+        await projectsApi.update(id, {
+          name: v.name,
+          status: v.status,
+          startedOn: v.startedOn,
+          dueOn: v.dueOn,
+          description: v.description
+        });
+        render();
+        toast('저장했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'proj-del') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    openConfirm('"' + p.name + '" 프로젝트를 삭제할까요? 태스크까지 함께 지워집니다.', async function () {
+      await projectsApi.remove(id);
+      if (location.hash.indexOf('#/project/') === 0) location.hash = '#/projects';
+      else render();
+      toast('삭제했습니다.');
+    });
+    return;
+  }
+
+  /* ---- 태스크 (프로젝트 안의 jsonb 배열) ---- */
+  if (act === 'task-status') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    const taskId = el.getAttribute('data-task');
+    const task = tasksOf(p).filter(function (t) { return t.id === taskId; })[0];
+    if (!task) return;
+
+    const order = TASK_STATUSES.map(function (s) { return s.key; });
+    const cur = order.indexOf(task.status);
+    const prev = task.status;
+    const next = order[(cur + 1) % order.length];
+
+    task.status = next; // 낙관적 업데이트
+    render();
+    try {
+      await projectsApi.update(id, { tasks: tasksOf(p) });
+    } catch (err) {
+      task.status = prev;
+      render();
+      toast('저장하지 못했습니다: ' + (err.message || err), true);
+    }
+    return;
+  }
+
+  if (act === 'task-add') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    openForm({
+      title: '태스크 추가',
+      fields: taskFields(),
+      values: { status: '진행 전', priority: '—' },
+      onSubmit: async function (v) {
+        const task = {
+          id: uid(),
+          title: v.title,
+          status: taskStatusKeyFromLabel(v.status),
+          priority: priorityKeyFromLabel(v.priority),
+          due: v.due || '',
+          memo: v.memo || ''
+        };
+        const tasks = tasksOf(p).concat([task]);
+        await projectsApi.update(id, { tasks: tasks });
+        render();
+        toast('태스크를 추가했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'task-edit') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    const taskId = el.getAttribute('data-task');
+    const task = tasksOf(p).filter(function (t) { return t.id === taskId; })[0];
+    if (!task) return;
+    openForm({
+      title: '태스크 수정',
+      fields: taskFields(),
+      values: {
+        title: task.title,
+        status: taskStatusMeta(task.status).label,
+        priority: priorityMeta(task.priority).label,
+        due: task.due || '',
+        memo: task.memo || ''
+      },
+      onSubmit: async function (v) {
+        const tasks = tasksOf(p).map(function (t) {
+          if (t.id !== taskId) return t;
+          return {
+            id: t.id,
+            title: v.title,
+            status: taskStatusKeyFromLabel(v.status),
+            priority: priorityKeyFromLabel(v.priority),
+            due: v.due || '',
+            memo: v.memo || ''
+          };
+        });
+        await projectsApi.update(id, { tasks: tasks });
+        render();
+        toast('저장했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'task-del') {
+    const p = projectsApi.get(id);
+    if (!p) return;
+    const taskId = el.getAttribute('data-task');
+    const task = tasksOf(p).filter(function (t) { return t.id === taskId; })[0];
+    openConfirm('"' + ((task && task.title) || '태스크') + '"을(를) 삭제할까요?', async function () {
+      const tasks = tasksOf(p).filter(function (t) { return t.id !== taskId; });
+      await projectsApi.update(id, { tasks: tasks });
+      render();
+      toast('삭제했습니다.');
+    });
+    return;
+  }
 }
 
 /* 로그인 페이지 주소 (index.html) */
@@ -1309,6 +1749,10 @@ function render() {
   } else if (hash.indexOf('#/goals/') === 0) {
     focusPeriod = hash.slice('#/goals/'.length);
     html = pageGoalPeriod(focusPeriod);
+  } else if (hash === '#/projects') {
+    html = pageProjects();
+  } else if (hash.indexOf('#/project/') === 0) {
+    html = pageProjectDetail(decodeURIComponent(hash.slice('#/project/'.length)));
   } else {
     html =
       '<div class="page-label">404</div>' +

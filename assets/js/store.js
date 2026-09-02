@@ -17,6 +17,7 @@ export const state = {
   jobs: [],
   companies: [],
   industries: [],
+  projects: [],
   notice: ''
 };
 
@@ -70,6 +71,12 @@ function seedJobs() {
 function seedCompanies() {
   return typeof COMPANIES !== 'undefined'
     ? COMPANIES.map(function (c) { return JSON.parse(JSON.stringify(c)); })
+    : [];
+}
+
+function seedProjects() {
+  return typeof PROJECTS !== 'undefined'
+    ? PROJECTS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
     : [];
 }
 
@@ -168,6 +175,31 @@ const map = {
     }
   },
 
+  projects: {
+    in: function (r) {
+      return {
+        id: r.id,
+        name: r.name || '',
+        description: r.description || '',
+        status: r.status || '진행중',
+        startedOn: r.started_on || '',
+        dueOn: r.due_on || '',
+        tasks: Array.isArray(r.tasks) ? r.tasks : [],
+        createdAt: r.created_at || ''
+      };
+    },
+    out: function (p) {
+      const out = {};
+      if ('name' in p) out.name = p.name;
+      if ('description' in p) out.description = p.description || '';
+      if ('status' in p) out.status = p.status || '진행중';
+      if ('startedOn' in p) out.started_on = p.startedOn ? p.startedOn : null;
+      if ('dueOn' in p) out.due_on = p.dueOn ? p.dueOn : null;
+      if ('tasks' in p) out.tasks = p.tasks || [];
+      return out;
+    }
+  },
+
   industries: {
     in: function (r) {
       return {
@@ -228,7 +260,8 @@ export async function reload() {
         sb.from('goals').select('*').order('created_at', { ascending: true }),
         sb.from('jobs').select('*').order('created_at', { ascending: true }),
         sb.from('companies').select('*').order('created_at', { ascending: true }),
-        sb.from('industries').select('*').order('created_at', { ascending: true })
+        sb.from('industries').select('*').order('created_at', { ascending: true }),
+        sb.from('projects').select('*').order('created_at', { ascending: true })
       ]);
       const err = r.filter(function (x) { return x.error; })[0];
       if (err) throw err.error;
@@ -237,6 +270,7 @@ export async function reload() {
       state.jobs = r[1].data.map(map.jobs.in);
       state.companies = r[2].data.map(map.companies.in);
       state.industries = r[3].data.map(map.industries.in);
+      state.projects = r[4].data.map(map.projects.in);
       state.source = 'supabase';
       state.notice = '';
       return;
@@ -259,6 +293,7 @@ export async function reload() {
   state.jobs = seedJobs();
   state.companies = seedCompanies();
   state.industries = seedIndustries();
+  state.projects = seedProjects();
   state.source = 'seed';
 }
 
@@ -343,6 +378,7 @@ export const goalsApi = makeApi('goals', 'goals');
 export const jobsApi = makeApi('jobs', 'jobs');
 export const companiesApi = makeApi('companies', 'companies');
 export const industriesApi = makeApi('industries', 'industries');
+export const projectsApi = makeApi('projects', 'projects');
 
 /* 산업군 본문은 이름 기준으로 있으면 수정, 없으면 생성 */
 export async function saveIndustry(name, patch) {
@@ -361,7 +397,8 @@ export function isEmpty() {
     state.goals.length === 0 &&
     state.jobs.length === 0 &&
     state.companies.length === 0 &&
-    state.industries.length === 0
+    state.industries.length === 0 &&
+    state.projects.length === 0
   );
 }
 
@@ -372,7 +409,8 @@ export async function seedFromFiles() {
     ['goals', seedGoals().map(map.goals.out)],
     ['jobs', seedJobs().map(map.jobs.out)],
     ['companies', seedCompanies().map(map.companies.out)],
-    ['industries', seedIndustries().map(map.industries.out)]
+    ['industries', seedIndustries().map(map.industries.out)],
+    ['projects', seedProjects().map(map.projects.out)]
   ];
 
   for (const pair of payloads) {
