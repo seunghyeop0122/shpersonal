@@ -19,6 +19,7 @@ import {
   jobsApi,
   companiesApi,
   projectsApi,
+  snsPostsApi,
   saveIndustry,
   industryByName
 } from './store.js';
@@ -63,6 +64,12 @@ const PRIORITIES = [
   { key: 'low', label: '낮음', cls: 'pr-low' }
 ];
 
+/* SNS 기획 컨셉 (샤홍슈) */
+const CONCEPTS = ['성형', '모발', '사후관리', '피부과'];
+
+/* 플랫폼 표시 이름 */
+const PLATFORM_LABELS = { threads: 'Threads', xhs: '샤홍슈', 小红书: '샤홍슈' };
+
 /* ---------- 아이콘 ---------- */
 const ICONS = {
   home: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>',
@@ -71,6 +78,7 @@ const ICONS = {
   industry: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l6 4V10l6 4V6l4-2v16z"/></svg>',
   goals: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
   projects: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7.5 13h5M7.5 16.5h8"/></svg>',
+  sns: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h6L17 3v13l-5.5-3h-6A2.5 2.5 0 0 1 3 10.5z"/><path d="M20 8c1 1.2 1 4.8 0 6"/></svg>',
   dot: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12"/></svg>',
   back: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
 };
@@ -257,6 +265,65 @@ function projectStatusBadge(status) {
   return '<span class="' + cls + '">' + esc(status || '진행중') + '</span>';
 }
 
+/* ---------- SNS 기획 ---------- */
+/* 시간순(오름차순): plan_date → 같은 날짜면 추가한 순서 */
+function snsSorted() {
+  return state.snsPosts.slice().sort(function (a, b) {
+    const da = a.planDate || '';
+    const db = b.planDate || '';
+    if (da !== db) return da < db ? -1 : 1;
+    const ca = a.createdAt || '';
+    const cb = b.createdAt || '';
+    if (ca !== cb) return ca < cb ? -1 : 1;
+    return 0;
+  });
+}
+
+function snsByConcept(concept) {
+  const list = snsSorted();
+  return concept ? list.filter(function (p) { return p.concept === concept; }) : list;
+}
+
+function conceptBadge(concept) {
+  if (!concept) return '';
+  const cls = 'sns-concept sns-c-' + (CONCEPTS.indexOf(concept) + 1);
+  return '<span class="tbadge ' + cls + '">' + esc(concept) + '</span>';
+}
+
+function platformLabel(platform) {
+  return PLATFORM_LABELS[platform] || platform || '';
+}
+
+function snsStatusBadge(status) {
+  const cls = status === '발행완료' ? 'badge badge-done' : 'badge badge-on';
+  return '<span class="' + cls + '">' + esc(status || '컨펌대기') + '</span>';
+}
+
+/* 컨셉 필터 칩 (라우트 기반 링크) */
+function conceptChips(active) {
+  let html = '<div class="filter-row"><span class="filter-label">컨셉</span>';
+  html +=
+    '<a class="chip' + (!active ? ' is-on' : '') + '" href="#/sns">전체</a>';
+  CONCEPTS.forEach(function (c) {
+    const on = active === c;
+    const count = state.snsPosts.filter(function (p) { return p.concept === c; }).length;
+    html +=
+      '<a class="chip' + (on ? ' is-on' : '') + '" href="#/sns/' + encodeURIComponent(c) + '">' +
+        esc(c) + (count ? ' <span class="chip-count">' + count + '</span>' : '') +
+      '</a>';
+  });
+  return html + '</div>';
+}
+
+/* 반응 지표 한 줄 */
+function snsMetricsLine(p) {
+  return (
+    '<span class="sns-metric" title="좋아요">♥ ' + (p.likes || 0) + '</span>' +
+    '<span class="sns-metric" title="댓글">💬 ' + (p.comments || 0) + '</span>' +
+    '<span class="sns-metric" title="DM">✉ ' + (p.dms || 0) + '</span>'
+  );
+}
+
 /* 편집 버튼: 로그인 상태에서만 렌더 */
 function btn(act, label, opts) {
   if (!canEdit()) return '';
@@ -436,14 +503,20 @@ function navConfig() {
   const projectChildren = sortedProjects().map(function (p) {
     return { label: p.name, route: '#/project/' + encodeURIComponent(p.id), icon: ICONS.dot };
   });
+  const snsChildren = CONCEPTS.map(function (c) {
+    return { label: c, route: '#/sns/' + encodeURIComponent(c), icon: ICONS.dot };
+  });
 
   return [
+    { group: '취업 준비' },
     { label: '홈', route: '#/home', icon: ICONS.home },
     { label: '채용공고', route: '#/jobs', icon: ICONS.jobs },
     { label: '지원 회사', route: '#/companies', icon: ICONS.companies },
     { label: '산업 분석', route: '#/industries', icon: ICONS.industry, children: industryChildren },
     { label: '목표 관리', route: '#/goals', icon: ICONS.goals, children: goalChildren },
-    { label: '프로젝트 관리', route: '#/projects', icon: ICONS.projects, children: projectChildren }
+    { label: '프로젝트 관리', route: '#/projects', icon: ICONS.projects, children: projectChildren },
+    { group: '샤홍슈' },
+    { label: 'SNS 기획', route: '#/sns', icon: ICONS.sns, children: snsChildren }
   ];
 }
 
@@ -452,6 +525,7 @@ function isActive(route, hash) {
   if (route === '#/industries') return hash.indexOf('#/industr') === 0;
   if (route === '#/goals') return hash.indexOf('#/goals') === 0;
   if (route === '#/projects') return hash.indexOf('#/projects') === 0 || hash.indexOf('#/project/') === 0;
+  if (route === '#/sns') return hash.indexOf('#/sns') === 0;
   if (route === '#/home') return hash === '#/home' || hash === '#/' || hash === '';
   return hash === route;
 }
@@ -459,6 +533,10 @@ function isActive(route, hash) {
 function renderNav(hash) {
   let html = '';
   navConfig().forEach(function (item) {
+    if (item.group) {
+      html += '<div class="nav-group">' + esc(item.group) + '</div>';
+      return;
+    }
     const parentActive = isActive(item.route, hash);
     const exactParent =
       hash === item.route ||
@@ -1197,6 +1275,86 @@ function pageProjectDetail(id) {
 }
 
 /* =========================================================
+   페이지: SNS 기획 (샤홍슈)
+   ========================================================= */
+function pageSns(concept) {
+  const list = snsByConcept(concept);
+  const all = concept ? snsByConcept(null) : list;
+
+  /* 요약: 총 편수 / 발행완료 / 총 반응 (현재 필터 기준) */
+  const published = list.filter(function (p) { return p.status === '발행완료'; }).length;
+  const sum = function (k) {
+    return list.reduce(function (acc, p) { return acc + (Number(p[k]) || 0); }, 0);
+  };
+
+  const rows = list
+    .map(function (p, i) {
+      const isDone = p.status === '발행완료';
+      const canConfirm = canEdit() && !isDone;
+      const checkbox =
+        '<input type="checkbox" class="goal-check"' +
+        (isDone ? ' checked' : '') +
+        (canConfirm
+          ? ' data-act="sns-confirm" data-id="' + esc(p.id) + '"'
+          : ' disabled') +
+        ' title="' + (isDone ? '발행완료' : '체크하면 발행완료로 넘어갑니다') + '"' +
+        ' aria-label="' + esc(p.hook) + ' 발행완료">';
+
+      return (
+        '<div class="goal-row sns-row' + (isDone ? ' is-done' : '') + '">' +
+          '<span class="sns-index">' + (i + 1) + '</span>' +
+          checkbox +
+          '<div class="goal-body">' +
+            '<div class="goal-row-top">' +
+              '<span class="goal-name">' + esc(p.hook || '(제목 없음)') + '</span>' +
+              (canEdit()
+                ? '<span class="goal-controls">' +
+                    btn('sns-metrics', '반응 입력', { data: { id: p.id } }) +
+                  '</span>'
+                : '') +
+            '</div>' +
+            '<div class="sns-meta">' +
+              conceptBadge(p.concept) +
+              (p.platform ? '<span class="tbadge sns-plat">' + esc(platformLabel(p.platform)) + '</span>' : '') +
+              snsStatusBadge(p.status) +
+              (p.planDate ? '<span class="sns-date">' + esc(p.planDate) + '</span>' : '') +
+            '</div>' +
+            (p.conclusion ? '<p class="sns-conclusion">' + esc(p.conclusion) + '</p>' : '') +
+            '<div class="sns-metrics">' + snsMetricsLine(p) + '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
+
+  return (
+    pageHead(
+      'SNS 기획 · 샤홍슈',
+      concept ? concept : '전체 기획',
+      'SNS_Vault에서 기획한 글이 시간순으로 쌓입니다. 컨펌대기 글은 체크하면 발행완료로 넘어가고, 좋아요·댓글·DM은 직접 입력합니다.'
+    ) +
+    banner() +
+
+    conceptChips(concept) +
+
+    '<div class="sns-summary">' +
+      '<span class="sns-summary-item"><b>' + list.length + '</b> 편' +
+        (concept ? '' : ' / 전체 ' + all.length) + '</span>' +
+      '<span class="sns-summary-item">발행완료 <b>' + published + '</b></span>' +
+      '<span class="sns-summary-item">♥ <b>' + sum('likes') + '</b></span>' +
+      '<span class="sns-summary-item">💬 <b>' + sum('comments') + '</b></span>' +
+      '<span class="sns-summary-item">✉ <b>' + sum('dms') + '</b></span>' +
+    '</div>' +
+
+    (list.length
+      ? '<div class="goal-list sns-list">' + rows + '</div>'
+      : '<div class="empty">' +
+          (concept ? '이 컨셉의 기획 글이 아직 없습니다.' : '아직 동기화된 SNS 기획 글이 없습니다.') +
+        '</div>')
+  );
+}
+
+/* =========================================================
    액션 (추가 / 수정 / 삭제)
    ========================================================= */
 function goalFields() {
@@ -1718,6 +1876,48 @@ async function handleAction(el) {
     });
     return;
   }
+
+  /* ---- SNS 기획 ---- */
+  if (act === 'sns-confirm') {
+    const p = snsPostsApi.get(id);
+    if (!p || p.status === '발행완료') return;
+
+    p.status = '발행완료'; // 낙관적 업데이트
+    render();
+    try {
+      await snsPostsApi.update(id, { status: '발행완료' });
+      toast('발행완료로 넘겼습니다.');
+    } catch (err) {
+      p.status = '컨펌대기';
+      render();
+      toast('저장하지 못했습니다: ' + (err.message || err), true);
+    }
+    return;
+  }
+
+  if (act === 'sns-metrics') {
+    const p = snsPostsApi.get(id);
+    if (!p) return;
+    openForm({
+      title: '반응 입력',
+      fields: [
+        { name: 'likes', label: '좋아요', type: 'number' },
+        { name: 'comments', label: '댓글', type: 'number' },
+        { name: 'dms', label: 'DM', type: 'number' }
+      ],
+      values: { likes: p.likes || 0, comments: p.comments || 0, dms: p.dms || 0 },
+      onSubmit: async function (v) {
+        await snsPostsApi.update(id, {
+          likes: Number(v.likes) || 0,
+          comments: Number(v.comments) || 0,
+          dms: Number(v.dms) || 0
+        });
+        render();
+        toast('저장했습니다.');
+      }
+    });
+    return;
+  }
 }
 
 /* 로그인 페이지 주소 (index.html) */
@@ -1753,6 +1953,10 @@ function render() {
     html = pageProjects();
   } else if (hash.indexOf('#/project/') === 0) {
     html = pageProjectDetail(decodeURIComponent(hash.slice('#/project/'.length)));
+  } else if (hash === '#/sns') {
+    html = pageSns(null);
+  } else if (hash.indexOf('#/sns/') === 0) {
+    html = pageSns(decodeURIComponent(hash.slice('#/sns/'.length)));
   } else {
     html =
       '<div class="page-label">404</div>' +

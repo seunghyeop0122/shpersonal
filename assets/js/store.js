@@ -18,6 +18,7 @@ export const state = {
   companies: [],
   industries: [],
   projects: [],
+  snsPosts: [],
   notice: ''
 };
 
@@ -77,6 +78,12 @@ function seedCompanies() {
 function seedProjects() {
   return typeof PROJECTS !== 'undefined'
     ? PROJECTS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
+    : [];
+}
+
+function seedSnsPosts() {
+  return typeof SNS_POSTS !== 'undefined'
+    ? SNS_POSTS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
     : [];
 }
 
@@ -200,6 +207,41 @@ const map = {
     }
   },
 
+  sns_posts: {
+    in: function (r) {
+      return {
+        id: r.id,
+        slug: r.slug || '',
+        concept: r.concept || '',
+        platform: r.platform || '',
+        direction: r.direction || '',
+        subjectCode: r.subject_code || '',
+        angleCode: r.angle_code || '',
+        hook: r.hook || '',
+        conclusion: r.conclusion || '',
+        body: r.body || '',
+        planDate: r.plan_date || '',
+        sourceFolder: r.source_folder || '',
+        sourceFile: r.source_file || '',
+        status: r.status || '컨펌대기',
+        likes: r.likes || 0,
+        comments: r.comments || 0,
+        dms: r.dms || 0,
+        createdAt: r.created_at || ''
+      };
+    },
+    /* 사이트에서 바꾸는 값(status/likes/comments/dms)만 patch로 내보냅니다.
+       볼트 원문 필드는 동기화 스크립트가 담당하므로 여기서 다루지 않습니다. */
+    out: function (p) {
+      const out = {};
+      if ('status' in p) out.status = p.status || '컨펌대기';
+      if ('likes' in p) out.likes = Number(p.likes) || 0;
+      if ('comments' in p) out.comments = Number(p.comments) || 0;
+      if ('dms' in p) out.dms = Number(p.dms) || 0;
+      return out;
+    }
+  },
+
   industries: {
     in: function (r) {
       return {
@@ -261,7 +303,8 @@ export async function reload() {
         sb.from('jobs').select('*').order('created_at', { ascending: true }),
         sb.from('companies').select('*').order('created_at', { ascending: true }),
         sb.from('industries').select('*').order('created_at', { ascending: true }),
-        sb.from('projects').select('*').order('created_at', { ascending: true })
+        sb.from('projects').select('*').order('created_at', { ascending: true }),
+        sb.from('sns_posts').select('*').order('plan_date', { ascending: true })
       ]);
       const err = r.filter(function (x) { return x.error; })[0];
       if (err) throw err.error;
@@ -271,6 +314,7 @@ export async function reload() {
       state.companies = r[2].data.map(map.companies.in);
       state.industries = r[3].data.map(map.industries.in);
       state.projects = r[4].data.map(map.projects.in);
+      state.snsPosts = r[5].data.map(map.sns_posts.in);
       state.source = 'supabase';
       state.notice = '';
       return;
@@ -294,6 +338,7 @@ export async function reload() {
   state.companies = seedCompanies();
   state.industries = seedIndustries();
   state.projects = seedProjects();
+  state.snsPosts = seedSnsPosts();
   state.source = 'seed';
 }
 
@@ -379,6 +424,7 @@ export const jobsApi = makeApi('jobs', 'jobs');
 export const companiesApi = makeApi('companies', 'companies');
 export const industriesApi = makeApi('industries', 'industries');
 export const projectsApi = makeApi('projects', 'projects');
+export const snsPostsApi = makeApi('sns_posts', 'snsPosts');
 
 /* 산업군 본문은 이름 기준으로 있으면 수정, 없으면 생성 */
 export async function saveIndustry(name, patch) {
