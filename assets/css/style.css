@@ -1249,10 +1249,13 @@ table.tbl tbody tr.clickable:hover { background: var(--hover-bg); }
 
 /* 컨셉 / 플랫폼 배지 (tbadge 기반) */
 .tbadge.sns-plat { background: rgba(55, 53, 47, 0.06); color: var(--text-muted); }
-.tbadge.sns-c-1 { background: rgba(224, 62, 62, 0.11);  color: #c0392b; } /* 성형 */
-.tbadge.sns-c-2 { background: rgba(46, 160, 105, 0.14); color: #1f8a54; } /* 모발 */
-.tbadge.sns-c-3 { background: rgba(35, 131, 226, 0.12); color: #1a6dbb; } /* 사후관리 */
-.tbadge.sns-c-4 { background: rgba(142, 68, 173, 0.13); color: #7d3c98; } /* 피부과 */
+/* 컨셉 배지 색 — 동기화된 컨셉에 등장 순서대로 순환 배정 */
+.tbadge.sns-c-1 { background: rgba(224, 62, 62, 0.11);  color: #c0392b; }
+.tbadge.sns-c-2 { background: rgba(46, 160, 105, 0.14); color: #1f8a54; }
+.tbadge.sns-c-3 { background: rgba(35, 131, 226, 0.12); color: #1a6dbb; }
+.tbadge.sns-c-4 { background: rgba(142, 68, 173, 0.13); color: #7d3c98; }
+.tbadge.sns-c-5 { background: rgba(217, 143, 30, 0.14); color: #b26a00; }
+.tbadge.sns-c-6 { background: rgba(20, 160, 170, 0.14); color: #0f8b93; }
 
 .sns-row.is-done .goal-name { text-decoration: none; color: var(--text); }
 

@@ -64,8 +64,8 @@ const PRIORITIES = [
   { key: 'low', label: '낮음', cls: 'pr-low' }
 ];
 
-/* SNS 기획 컨셉 (샤홍슈) */
-const CONCEPTS = ['성형', '모발', '사후관리', '피부과'];
+/* SNS 기획 컨셉은 고정하지 않고, 동기화된 데이터에서 자동으로 뽑습니다
+   (산업 분석이 회사 데이터에서 산업군을 뽑는 방식과 동일). snsConcepts() 참고. */
 
 /* 플랫폼 표시 이름 */
 const PLATFORM_LABELS = { threads: 'Threads', xhs: '샤홍슈', 小红书: '샤홍슈' };
@@ -284,10 +284,20 @@ function snsByConcept(concept) {
   return concept ? list.filter(function (p) { return p.concept === concept; }) : list;
 }
 
+/* 동기화된 글에서 실제 쓰인 컨셉을 자동 추출 (가나다순) */
+function snsConcepts() {
+  const set = [];
+  state.snsPosts.forEach(function (p) {
+    if (p.concept && set.indexOf(p.concept) === -1) set.push(p.concept);
+  });
+  return set.sort(byKo);
+}
+
 function conceptBadge(concept) {
   if (!concept) return '';
-  const cls = 'sns-concept sns-c-' + (CONCEPTS.indexOf(concept) + 1);
-  return '<span class="tbadge ' + cls + '">' + esc(concept) + '</span>';
+  const idx = snsConcepts().indexOf(concept);
+  const n = (idx < 0 ? 0 : idx % 6) + 1;
+  return '<span class="tbadge sns-concept sns-c-' + n + '">' + esc(concept) + '</span>';
 }
 
 function platformLabel(platform) {
@@ -304,7 +314,7 @@ function conceptChips(active) {
   let html = '<div class="filter-row"><span class="filter-label">컨셉</span>';
   html +=
     '<a class="chip' + (!active ? ' is-on' : '') + '" href="#/sns">전체</a>';
-  CONCEPTS.forEach(function (c) {
+  snsConcepts().forEach(function (c) {
     const on = active === c;
     const count = state.snsPosts.filter(function (p) { return p.concept === c; }).length;
     html +=
@@ -503,7 +513,7 @@ function navConfig() {
   const projectChildren = sortedProjects().map(function (p) {
     return { label: p.name, route: '#/project/' + encodeURIComponent(p.id), icon: ICONS.dot };
   });
-  const snsChildren = CONCEPTS.map(function (c) {
+  const snsChildren = snsConcepts().map(function (c) {
     return { label: c, route: '#/sns/' + encodeURIComponent(c), icon: ICONS.dot };
   });
 
