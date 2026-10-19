@@ -38,6 +38,8 @@ const CALENDAR_EMBED_URL =
 
 const SCALES = ['대기업', '중견기업', '중소기업', '스타트업', '공기업·공공기관', '외국계'];
 const STATUSES = ['진행중', '결과완료'];
+/* 세부 단계 (전형 순서대로) */
+const STAGES = ['지원 완료', '서류 탈락', '서류 합격', '인적성·필기', '1차 면접', '2차 면접', '최종 면접', '최종 합격', '최종 탈락'];
 const PERIODS = [
   { key: 'daily', label: 'Daily', ko: '일간' },
   { key: 'monthly', label: 'Monthly', ko: '월간' },
@@ -787,6 +789,7 @@ function pageCompanies() {
           '<td class="cell-muted nowrap">' + dash(c.industry) + '</td>' +
           '<td class="cell-muted nowrap">' + dash(c.scale) + '</td>' +
           '<td class="nowrap">' + statusBadge(c.status) + '</td>' +
+          '<td class="cell-muted nowrap">' + dash(c.stage) + '</td>' +
           '<td class="cell-muted nowrap">' + dash(c.schedule && c.schedule.interview) + '</td>' +
           (canEdit()
             ? '<td class="nowrap"><div class="row-actions">' +
@@ -819,7 +822,7 @@ function pageCompanies() {
     (list.length
       ? '<div class="table-wrap"><table class="tbl">' +
           '<thead><tr>' +
-            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>면접일</th>' +
+            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>세부 단계</th><th>면접일</th>' +
             (canEdit() ? '<th style="width:96px"></th>' : '') +
           '</tr></thead>' +
           '<tbody>' + rows + '</tbody>' +
@@ -1391,13 +1394,16 @@ function jobFields() {
   ];
 }
 
-function companyFields() {
+/* current: 수정 중인 회사. 목록에 없는 예전 세부 단계 값도 선택지에 남겨 저장 시 지워지지 않게 합니다. */
+function companyFields(current) {
+  const stage = current && current.stage;
+  const stageOptions = [''].concat(STAGES, stage && STAGES.indexOf(stage) === -1 ? [stage] : []);
   return [
     { name: 'name', label: '회사명', required: true },
     { name: 'industry', label: '산업군', datalist: allIndustries(), placeholder: '예: IT, 금융' },
     { name: 'scale', label: '규모', type: 'select', options: [''].concat(SCALES) },
     { name: 'status', label: '진행상태', type: 'select', options: STATUSES },
-    { name: 'stage', label: '세부 단계', placeholder: '예: 1차 면접 대기' },
+    { name: 'stage', label: '세부 단계', type: 'select', options: stageOptions },
     { name: 'position', label: '지원 직무' }
   ];
 }
@@ -1599,7 +1605,7 @@ async function handleAction(el) {
     if (!c) return;
     openForm({
       title: '기본 정보 수정',
-      fields: companyFields(),
+      fields: companyFields(c),
       values: c,
       onSubmit: async function (v) {
         await companiesApi.update(id, v);
