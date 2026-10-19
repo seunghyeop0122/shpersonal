@@ -1,0 +1,21 @@
+# 매일 아침 사람인 오픈 API에서 관심 직무의 신입 공채를 모아
+# Supabase job_postings 에 쌓는다 (scripts/fetch_jobs.py).
+# 필요한 저장소 Secrets: SARAMIN_ACCESS_KEY, SUPABASE_SERVICE_ROLE_KEY
+# Secrets 가 없으면 스크립트가 건너뛰므로 실패로 표시되지 않는다.
+name: Fetch job postings
+
+on:
+  schedule:
+    - cron: '0 23 * * *'   # 매일 08:00 KST
+  workflow_dispatch:        # Actions 탭에서 수동 실행
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch from Saramin
+        run: python3 scripts/fetch_jobs.py
+        env:
+          SARAMIN_ACCESS_KEY: ${{ secrets.SARAMIN_ACCESS_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

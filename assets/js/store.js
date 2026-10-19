@@ -19,6 +19,7 @@ export const state = {
   industries: [],
   projects: [],
   snsPosts: [],
+  jobPostings: [],
   notice: ''
 };
 
@@ -84,6 +85,12 @@ function seedProjects() {
 function seedSnsPosts() {
   return typeof SNS_POSTS !== 'undefined'
     ? SNS_POSTS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
+    : [];
+}
+
+function seedJobPostings() {
+  return typeof JOB_POSTINGS !== 'undefined'
+    ? JOB_POSTINGS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
     : [];
 }
 
@@ -242,6 +249,26 @@ const map = {
     }
   },
 
+  /* 자동 수집 공고 — 사이트에서는 읽기만 합니다(쓰기는 수집 스크립트) */
+  job_postings: {
+    in: function (r) {
+      return {
+        id: r.id,
+        company: r.company || '',
+        title: r.title || '',
+        url: r.url || '',
+        categories: Array.isArray(r.categories) ? r.categories : [],
+        jobType: r.job_type || '',
+        experience: r.experience || '',
+        education: r.education || '',
+        location: r.location || '',
+        deadline: r.deadline || '',
+        closeType: r.close_type || '',
+        fetchedAt: r.fetched_at || ''
+      };
+    }
+  },
+
   industries: {
     in: function (r) {
       return {
@@ -304,7 +331,8 @@ export async function reload() {
         sb.from('companies').select('*').order('created_at', { ascending: true }),
         sb.from('industries').select('*').order('created_at', { ascending: true }),
         sb.from('projects').select('*').order('created_at', { ascending: true }),
-        sb.from('sns_posts').select('*').order('plan_date', { ascending: true })
+        sb.from('sns_posts').select('*').order('plan_date', { ascending: true }),
+        sb.from('job_postings').select('*').order('deadline', { ascending: true })
       ]);
       const err = r.filter(function (x) { return x.error; })[0];
       if (err) throw err.error;
@@ -315,6 +343,7 @@ export async function reload() {
       state.industries = r[3].data.map(map.industries.in);
       state.projects = r[4].data.map(map.projects.in);
       state.snsPosts = r[5].data.map(map.sns_posts.in);
+      state.jobPostings = r[6].data.map(map.job_postings.in);
       state.source = 'supabase';
       state.notice = '';
       return;
@@ -339,6 +368,7 @@ export async function reload() {
   state.industries = seedIndustries();
   state.projects = seedProjects();
   state.snsPosts = seedSnsPosts();
+  state.jobPostings = seedJobPostings();
   state.source = 'seed';
 }
 

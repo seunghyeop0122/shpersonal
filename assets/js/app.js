@@ -535,6 +535,7 @@ function navConfig() {
 function isActive(route, hash) {
   if (route === '#/companies') return hash.indexOf('#/companies') === 0 || hash.indexOf('#/company/') === 0;
   if (route === '#/industries') return hash.indexOf('#/industr') === 0;
+  if (route === '#/jobs') return hash.indexOf('#/jobs') === 0;
   if (route === '#/goals') return hash.indexOf('#/goals') === 0;
   if (route === '#/projects') return hash.indexOf('#/projects') === 0 || hash.indexOf('#/project/') === 0;
   if (route === '#/sns') return hash.indexOf('#/sns') === 0;
@@ -674,6 +675,153 @@ function pageHome() {
 /* =========================================================
    페이지: 채용공고
    ========================================================= */
+/* 채용공고 탭 (공고 피드 / 관심 공고) */
+function jobsTabs(active) {
+  const tab = function (key, href, label) {
+    return '<a class="jobs-tab' + (active === key ? ' is-on' : '') + '" href="' + href + '">' + label + '</a>';
+  };
+  return (
+    '<div class="jobs-tabs">' +
+      tab('feed', '#/jobs', '공고 피드 <span class="chip-count">' + activePostings().length + '</span>') +
+      tab('saved', '#/jobs/saved', '관심 공고 <span class="chip-count">' + state.jobs.length + '</span>') +
+    '</div>'
+  );
+}
+
+/* =========================================================
+   페이지: 채용공고 — 공고 피드 (사람인 자동 수집)
+   ========================================================= */
+const JOB_CATEGORIES = ['구매·조달', '해외영업', '사업기획·상사', '마케팅·브랜드'];
+
+function postingDate(p) {
+  return p.deadline ? fmtDate(p.deadline) : '';
+}
+
+/* 접수마감일이 정해진 공고인지 (상시·채용시 마감은 날짜가 의미 없음) */
+function hasFixedDeadline(p) {
+  return !!postingDate(p) && (!p.closeType || p.closeType === '접수마감일');
+}
+
+/* 마감이 지나지 않은 공고 */
+function activePostings() {
+  return state.jobPostings.filter(function (p) {
+    const d = dday(postingDate(p));
+    return d === null || d >= 0;
+  });
+}
+
+function isSavedPosting(p) {
+  return !!p.url && state.jobs.some(function (j) { return j.link === p.url; });
+}
+
+function pageJobFeed() {
+  const cats = filterState.jobCat;
+  const urgent = filterState.jobUrgent.length > 0;
+
+  const list = activePostings()
+    .filter(function (p) {
+      if (cats.length && !p.categories.some(function (c) { return cats.indexOf(c) !== -1; })) return false;
+      if (urgent) {
+        const d = dday(postingDate(p));
+        if (!hasFixedDeadline(p) || d > 7) return false;
+      }
+      return true;
+    })
+    .sort(function (a, b) {
+      const da = hasFixedDeadline(a) ? postingDate(a) : '';
+      const db = hasFixedDeadline(b) ? postingDate(b) : '';
+      if (da !== db) {
+        if (!da) return 1;
+        if (!db) return -1;
+        return da < db ? -1 : 1;
+      }
+      return byKo(a.company, b.company);
+    });
+
+  const lastFetched = state.jobPostings.reduce(function (acc, p) {
+    return p.fetchedAt && p.fetchedAt > acc ? p.fetchedAt : acc;
+  }, '');
+
+  const rows = list
+    .map(function (p) {
+      let deadlineCell;
+      if (!hasFixedDeadline(p)) {
+        deadlineCell = '<span class="badge">' + esc(p.closeType || '상시') + '</span>';
+      } else {
+        const date = postingDate(p);
+        const d = dday(date);
+        deadlineCell =
+          '<div class="nowrap">' + esc(date) + '</div>' +
+          '<span class="' + (d <= 3 ? 'badge badge-urgent' : 'badge') + '" style="margin-top:4px">' +
+            (d === 0 ? 'D-DAY' : 'D-' + d) +
+          '</span>';
+      }
+
+      let saveCell = '';
+      if (canEdit()) {
+        saveCell = isSavedPosting(p)
+          ? '<td class="nowrap"><span class="saved-mark">★ 저장됨</span></td>'
+          : '<td class="nowrap">' + btn('posting-save', '☆ 관심', { data: { id: p.id } }) + '</td>';
+      }
+
+      return (
+        '<tr>' +
+          '<td class="cell-strong nowrap">' + esc(p.company) + '</td>' +
+          '<td>' +
+            (p.url
+              ? '<a class="posting-title" href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.title) + '</a>'
+              : esc(p.title)) +
+            '<div class="posting-tags">' +
+              p.categories.map(function (c) { return '<span class="tbadge sns-plat">' + esc(c) + '</span>'; }).join('') +
+            '</div>' +
+          '</td>' +
+          '<td class="cell-muted">' +
+            '<div class="nowrap">' + dash(p.experience) + '</div>' +
+            '<div class="posting-sub">' + esc(p.location) + '</div>' +
+          '</td>' +
+          '<td class="nowrap">' + deadlineCell + '</td>' +
+          saveCell +
+        '</tr>'
+      );
+    })
+    .join('');
+
+  const empty = state.jobPostings.length === 0
+    ? '아직 수집된 공고가 없습니다. 사람인 API 키를 설정하면 매일 아침 8시에 자동으로 채워집니다.'
+    : '조건에 맞는 공고가 없습니다.';
+
+  return (
+    pageHead(
+      '채용공고',
+      '공고 피드',
+      '관심 직무의 신입 공채(코스피 상장사·정규직)를 매일 아침 자동으로 모읍니다. ☆ 관심을 누르면 관심 공고로 저장됩니다.'
+    ) +
+    banner() +
+    jobsTabs('feed') +
+    '<div class="filters">' +
+      chipRow('직무', 'jobCat', JOB_CATEGORIES) +
+      chipRow('마감', 'jobUrgent', ['7일 이내']) +
+    '</div>' +
+    '<div class="result-count">' +
+      list.length + '개 공고' +
+      (lastFetched ? ' · 마지막 수집 ' + esc(fmtDate(lastFetched)) : '') +
+      ' · <a class="link-out" href="https://www.saramin.co.kr" target="_blank" rel="noopener">사람인 제공</a>' +
+    '</div>' +
+    (list.length
+      ? '<div class="table-wrap"><table class="tbl">' +
+          '<thead><tr>' +
+            '<th style="width:120px">회사</th>' +
+            '<th style="min-width:240px">공고</th>' +
+            '<th style="width:130px">경력 · 지역</th>' +
+            '<th style="width:100px">마감</th>' +
+            (canEdit() ? '<th style="width:80px"></th>' : '') +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table></div>'
+      : '<div class="empty">' + esc(empty) + '</div>')
+  );
+}
+
 function pageJobs() {
   const rows = state.jobs
     .slice()
@@ -726,6 +874,7 @@ function pageJobs() {
       btn('job-add', '+ 공고 추가', { cls: 'btn-primary btn-sm' })
     ) +
     banner() +
+    jobsTabs('saved') +
     (state.jobs.length
       ? '<div class="table-wrap"><table class="tbl">' +
           '<thead><tr>' +
@@ -745,7 +894,7 @@ function pageJobs() {
 /* =========================================================
    페이지: 지원 회사 (목록 + 필터)
    ========================================================= */
-const filterState = { scale: [], industry: [], status: [] };
+const filterState = { scale: [], industry: [], status: [], jobCat: [], jobUrgent: [] };
 
 function chipRow(label, key, options) {
   const selected = filterState[key];
@@ -1544,6 +1693,32 @@ async function handleAction(el) {
     return;
   }
 
+  /* ---- 공고 피드 → 관심 공고 저장 ---- */
+  if (act === 'posting-save') {
+    const p = state.jobPostings.filter(function (x) { return String(x.id) === String(id); })[0];
+    if (!p) return;
+    if (isSavedPosting(p)) {
+      toast('이미 관심 공고에 있습니다.');
+      return;
+    }
+    el.disabled = true;
+    try {
+      await jobsApi.create({
+        company: p.company,
+        title: p.title,
+        link: p.url,
+        deadline: hasFixedDeadline(p) ? postingDate(p) : '',
+        memo: ''
+      });
+      render();
+      toast('관심 공고에 저장했습니다.');
+    } catch (err) {
+      el.disabled = false;
+      toast('저장하지 못했습니다: ' + (err.message || err), true);
+    }
+    return;
+  }
+
   /* ---- 채용공고 ---- */
   if (act === 'job-add') {
     openForm({
@@ -1951,6 +2126,8 @@ function render() {
   if (hash === '#/' || hash === '#/home' || hash === '') {
     html = pageHome();
   } else if (hash === '#/jobs') {
+    html = pageJobFeed();
+  } else if (hash === '#/jobs/saved') {
     html = pageJobs();
   } else if (hash === '#/companies') {
     html = pageCompanies();

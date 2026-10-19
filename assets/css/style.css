@@ -1259,3 +1259,30 @@ table.tbl tbody tr.clickable:hover { background: var(--hover-bg); }
 
 .sns-row.is-done .goal-name { text-decoration: none; color: var(--text); }
 
+
+/* ---------------------------------------------------------
+   채용공고 — 공고 피드 / 관심 공고 탭
+   --------------------------------------------------------- */
+.jobs-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.jobs-tab {
+  padding: 8px 12px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  text-decoration: none;
+}
+.jobs-tab:hover { color: var(--text); }
+.jobs-tab.is-on { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+
+.posting-title { color: var(--text); font-weight: 500; text-decoration: none; }
+.posting-title:hover { text-decoration: underline; }
+.posting-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.posting-sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+.saved-mark { font-size: 12.5px; color: #b26a00; }
