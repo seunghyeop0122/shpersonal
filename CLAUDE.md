@@ -25,6 +25,12 @@ Claude Code가 이 저장소에서 작업할 때 참고하는 문서입니다.
 | `assets/js/supabase-config.js` | Project URL / anon key |
 | `data/*.js` | 예시 데이터. 설정 전 화면과 "예시 데이터 불러오기"에 쓰임 |
 | `supabase/migrations/*.sql` | DB 스키마 |
+| `scripts/fetch_jobs.py` | 사람인 오픈 API → `job_postings` 공고 수집 (Actions에서 매일 실행) |
+| `.github/workflows/fetch-jobs.yml` | 매일 08:00 KST 공고 수집. Secrets: `SARAMIN_ACCESS_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
+| `.github/workflows/keep-supabase-awake.yml` | 3일마다 DB 조회 → 무료 플랜 자동 일시정지 방지 |
+
+`sns_posts` 는 별도 볼트(`AI 관련 파일/SNS_Vault/.claude/tools/sync_to_site.py`)가 채웁니다.
+`job_postings` 와 `sns_posts` 의 `status/likes/comments/dms` 외에는 사이트에서 쓰지 않습니다.
 
 ## 배포 파이프라인
 
@@ -78,6 +84,12 @@ python -m http.server 8765
    ```
 
 ## 겪었던 함정
+
+- **Supabase 무료 플랜은 7일간 사용이 없으면 일시정지됩니다.** 이때 `*.supabase.co` 주소가
+  아예 사라져(DNS NXDOMAIN) 로그인 화면이 "사이트에 연결할 수 없음"이 됩니다. 대시보드에서
+  Restore 하면 데이터 그대로 복구되고, 켜지는 동안은 521이 납니다.
+- **`reload()` 는 모든 테이블을 한 번에 읽습니다.** 새 테이블을 추가한 코드가 마이그레이션보다
+  먼저 배포되면 전체 로딩이 실패하니, push 후 `/rest/v1/<새 테이블>` 이 200인지 확인하세요.
 
 - **`[hidden]` 은 `display:flex` 를 못 이깁니다.** 숨김을 확인할 땐 속성이 아니라
   computed style을 봐야 합니다. (`style.css` 에 `[hidden]{display:none!important}` 를 넣어둠)
