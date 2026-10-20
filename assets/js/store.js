@@ -164,7 +164,7 @@ const map = {
         name: r.name || '',
         industry: r.industry || '',
         scale: r.scale || '',
-        status: r.status || '진행중',
+        status: r.status || '서류 지원',
         stage: r.stage || '',
         position: r.position || '',
         schedule: r.schedule || {},
@@ -178,7 +178,7 @@ const map = {
       if ('name' in c) out.name = c.name;
       if ('industry' in c) out.industry = c.industry || '';
       if ('scale' in c) out.scale = c.scale || '';
-      if ('status' in c) out.status = c.status || '진행중';
+      if ('status' in c) out.status = c.status || '서류 지원';
       if ('stage' in c) out.stage = c.stage || '';
       if ('position' in c) out.position = c.position || '';
       if ('schedule' in c) out.schedule = c.schedule || {};

@@ -9,8 +9,9 @@
    - name             : 회사명
    - industry         : 산업군 (예: IT, 금융 — 새 값을 쓰면 산업 분석에 자동 추가됨)
    - scale            : 규모 (대기업 / 중견기업 / 중소기업 / 스타트업 / 공기업·공공기관 / 외국계)
-   - status           : 진행상태 (진행중 / 결과완료)  ← 필터 기준
-   - stage            : 세부 단계 메모 (자유 텍스트, 상세 페이지에만 표시)
+   - status           : 진행상태 (서류 지원 / 서류 탈락 / 서류 합격 / 인적성·필기 /
+                        1차 면접 / 2차 면접 / 최종 면접 / 최종 합격 / 최종 탈락)  ← 필터 기준
+   - stage            : (더 이상 쓰지 않음)
    - position         : 지원 직무
    - schedule         : { applied, docResult, interview, finalResult } — 'YYYY-MM-DD' 또는 ''
    - companyAnalysis  : 회사 분석 텍스트 (줄바꿈 그대로 표시됨)
@@ -24,7 +25,7 @@ const COMPANIES = [
     name: '네이버',
     industry: 'IT',
     scale: '대기업',
-    status: '진행중',
+    status: '1차 면접',
     stage: '1차 기술면접 대기',
     position: '백엔드 개발',
     schedule: {
@@ -59,7 +60,7 @@ const COMPANIES = [
     name: '카카오뱅크',
     industry: '금융',
     scale: '대기업',
-    status: '진행중',
+    status: '서류 지원',
     stage: '서류 결과 대기',
     position: '데이터 분석',
     schedule: {
@@ -82,7 +83,7 @@ const COMPANIES = [
     name: '토스',
     industry: '금융',
     scale: '스타트업',
-    status: '결과완료',
+    status: '최종 탈락',
     stage: '최종 불합격 (2026-07-18)',
     position: '프로덕트 애널리스트',
     schedule: {
@@ -126,7 +127,7 @@ const COMPANIES = [
     name: '당근',
     industry: 'IT',
     scale: '스타트업',
-    status: '진행중',
+    status: '최종 면접',
     stage: '1차 면접 완료, 최종 대기',
     position: '프론트엔드 개발',
     schedule: {

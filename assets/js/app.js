@@ -37,9 +37,8 @@ const CALENDAR_EMBED_URL =
   'https://calendar.google.com/calendar/embed?ctz=Asia%2FSeoul&src=ko.south_korea%23holiday%40group.v.calendar.google.com';
 
 const SCALES = ['대기업', '중견기업', '중소기업', '스타트업', '공기업·공공기관', '외국계'];
-const STATUSES = ['진행중', '결과완료'];
-/* 세부 단계 (전형 순서대로) */
-const STAGES = ['지원 완료', '서류 탈락', '서류 합격', '인적성·필기', '1차 면접', '2차 면접', '최종 면접', '최종 합격', '최종 탈락'];
+/* 지원 회사 진행상태 (전형 순서대로) */
+const STATUSES = ['서류 지원', '서류 탈락', '서류 합격', '인적성·필기', '1차 면접', '2차 면접', '최종 면접', '최종 합격', '최종 탈락'];
 const PERIODS = [
   { key: 'daily', label: 'Daily', ko: '일간' },
   { key: 'monthly', label: 'Monthly', ko: '월간' },
@@ -190,8 +189,11 @@ function byNewest(a, b) {
   return 0;
 }
 
+/* 합격 = 초록, 탈락 = 회색, 그 외(진행 중인 전형) = 파랑 */
 function statusBadge(status) {
-  const cls = status === '진행중' ? 'badge badge-on' : 'badge badge-done';
+  const cls =
+    status === '최종 합격' ? 'badge badge-pass' :
+    /탈락/.test(status || '') ? 'badge badge-done' : 'badge badge-on';
   return '<span class="' + cls + '">' + esc(status || '—') + '</span>';
 }
 
@@ -640,22 +642,49 @@ function pageHome() {
         '</div>'
       : '';
 
+  /* 프로젝트: 상태별(진행중 → 보류 → 완료)로 묶어서, 프로젝트가 있는 상태만 표시 */
+  const projectGroups = PROJECT_STATUSES.map(function (st) {
+    const list = sortedProjects().filter(function (p) { return (p.status || '진행중') === st; });
+    if (!list.length) return '';
+    return (
+      '<div class="home-proj-group">' +
+        '<div class="home-proj-head">' + projectStatusBadge(st) + '<span class="column-count">' + list.length + '</span></div>' +
+        '<div class="summary-list">' +
+          list.map(function (p) {
+            return (
+              '<a class="summary-row" href="#/project/' + encodeURIComponent(p.id) + '">' +
+                '<span class="summary-name">' + esc(p.name) +
+                  '<span class="summary-sub">' + projectDone(p) + ' / ' + tasksOf(p).length + ' 완료' +
+                    (p.dueOn ? ' · 마감 ' + esc(p.dueOn) : '') + '</span>' +
+                '</span>' +
+                progressBar(projectProgress(p)) +
+              '</a>'
+            );
+          }).join('') +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
   return (
-    pageHead('홈 대시보드', 'SH site', '일정과 목표 진행 상황을 한 화면에서 확인합니다.') +
+    pageHead('홈 대시보드', 'SH site', '목표, 프로젝트, 일정을 한 화면에서 확인합니다.') +
     banner() +
     seedBtn +
 
-    '<h2 class="section-head first">일정표</h2>' +
+    '<h2 class="section-head first">Goals</h2>' +
+    '<div class="goal-grid">' + cards + '</div>' +
+
+    '<h2 class="section-head"><a class="section-link" href="#/projects">프로젝트 관리</a></h2>' +
+    (projectGroups || '<div class="empty">아직 등록된 프로젝트가 없습니다.</div>') +
+
+    '<h2 class="section-head">일정표</h2>' +
     '<div class="calendar-wrap">' +
       '<iframe src="' + esc(CALENDAR_EMBED_URL) + '" title="구글 캘린더" loading="lazy" ' +
       'frameborder="0" scrolling="no"></iframe>' +
     '</div>' +
     '<p class="section-sub" style="margin-top:8px">' +
       '내 캘린더로 바꾸려면 assets/js/app.js 상단의 CALENDAR_EMBED_URL 값을 수정하세요.' +
-    '</p>' +
-
-    '<h2 class="section-head">Goals</h2>' +
-    '<div class="goal-grid">' + cards + '</div>'
+    '</p>'
   );
 }
 
@@ -925,7 +954,6 @@ function pageCompanies() {
           '<td class="cell-muted nowrap">' + dash(c.industry) + '</td>' +
           '<td class="cell-muted nowrap">' + dash(c.scale) + '</td>' +
           '<td class="nowrap">' + statusBadge(c.status) + '</td>' +
-          '<td class="cell-muted nowrap">' + dash(c.stage) + '</td>' +
           '<td class="cell-muted nowrap">' + dash(c.schedule && c.schedule.interview) + '</td>' +
           (canEdit()
             ? '<td class="nowrap"><div class="row-actions">' +
@@ -950,7 +978,7 @@ function pageCompanies() {
     '<div class="filters">' +
       chipRow('규모', 'scale', scaleOptions) +
       chipRow('산업군', 'industry', allIndustries()) +
-      chipRow('진행상태', 'status', STATUSES) +
+      chipRow('진행상태', 'status', statusOptions()) +
     '</div>' +
 
     '<div class="result-count">' + list.length + '개 / 전체 ' + state.companies.length + '개</div>' +
@@ -958,7 +986,7 @@ function pageCompanies() {
     (list.length
       ? '<div class="table-wrap"><table class="tbl">' +
           '<thead><tr>' +
-            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>세부 단계</th><th>면접일</th>' +
+            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>면접일</th>' +
             (canEdit() ? '<th style="width:96px"></th>' : '') +
           '</tr></thead>' +
           '<tbody>' + rows + '</tbody>' +
@@ -1047,7 +1075,6 @@ function pageCompanyDetail(id) {
     sectionHead('지원 상태 / 일정', btn('co-sched', '일정 수정', { data: { id: c.id } })) +
     '<dl class="kv">' +
       '<dt>진행상태</dt><dd>' + esc(c.status || '—') + '</dd>' +
-      '<dt>세부 단계</dt><dd>' + dash(c.stage) + '</dd>' +
       scheduleHtml +
     '</dl>' +
 
@@ -1541,16 +1568,21 @@ function jobFields() {
   ];
 }
 
-/* current: 수정 중인 회사. 목록에 없는 예전 세부 단계 값도 선택지에 남겨 저장 시 지워지지 않게 합니다. */
-function companyFields(current) {
-  const stage = current && current.stage;
-  const stageOptions = [''].concat(STAGES, stage && STAGES.indexOf(stage) === -1 ? [stage] : []);
+/* 전형 목록 + 실제로 쓰인 예전 값(목록에 없는 것) — 필터와 폼이 함께 씀 */
+function statusOptions() {
+  const extra = [];
+  state.companies.forEach(function (c) {
+    if (c.status && STATUSES.indexOf(c.status) === -1 && extra.indexOf(c.status) === -1) extra.push(c.status);
+  });
+  return STATUSES.concat(extra);
+}
+
+function companyFields() {
   return [
     { name: 'name', label: '회사명', required: true },
     { name: 'industry', label: '산업군', datalist: allIndustries(), placeholder: '예: IT, 금융' },
     { name: 'scale', label: '규모', type: 'select', options: [''].concat(SCALES) },
-    { name: 'status', label: '진행상태', type: 'select', options: STATUSES },
-    { name: 'stage', label: '세부 단계', type: 'select', options: stageOptions },
+    { name: 'status', label: '진행상태', type: 'select', options: statusOptions() },
     { name: 'position', label: '지원 직무' }
   ];
 }
@@ -1763,7 +1795,7 @@ async function handleAction(el) {
     openForm({
       title: '회사 추가',
       fields: companyFields(),
-      values: { status: '진행중' },
+      values: { status: '서류 지원' },
       onSubmit: async function (v) {
         await companiesApi.create(v);
         render();
@@ -1778,7 +1810,7 @@ async function handleAction(el) {
     if (!c) return;
     openForm({
       title: '기본 정보 수정',
-      fields: companyFields(c),
+      fields: companyFields(),
       values: c,
       onSubmit: async function (v) {
         await companiesApi.update(id, v);
