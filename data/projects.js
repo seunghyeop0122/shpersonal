@@ -10,7 +10,7 @@
    - dueOn       : 마감일 'YYYY-MM-DD' (선택)
    - tasks       : 태스크 배열
        { id, title, status, priority, due, memo }
-         status   : 'todo'(진행 전) | 'doing'(진행 중) | 'done'(완료) | 'blocked'(막힘)
+         status   : 'todo'(진행 전) | 'doing'(진행 중) | 'done'(완료)
          priority : 'high'(높음) | 'mid'(중간) | 'low'(낮음) | '' (없음)
          due      : 마감일 'YYYY-MM-DD' (선택)
 
@@ -29,7 +29,7 @@ const PROJECTS = [
       { id: 't1', title: '메인 페이지 레이아웃', status: 'done', priority: 'high', due: '2026-08-25', memo: '반응형까지 완료' },
       { id: 't2', title: '프로젝트 상세 페이지', status: 'doing', priority: 'high', due: '2026-09-05', memo: '' },
       { id: 't3', title: 'Vercel 배포 및 도메인 연결', status: 'todo', priority: 'mid', due: '2026-09-10', memo: '' },
-      { id: 't4', title: '반응형 QA', status: 'blocked', priority: 'low', due: '', memo: '모바일 사파리 이슈 확인 필요' }
+      { id: 't4', title: '반응형 QA', status: 'doing', priority: 'low', due: '', memo: '모바일 사파리 이슈 확인 필요' }
     ]
   },
   {

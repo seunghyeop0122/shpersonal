@@ -54,8 +54,7 @@ const PROJECT_STATUSES = ['진행중', '보류', '완료'];
 const TASK_STATUSES = [
   { key: 'todo', label: '진행 전', cls: 'ts-todo' },
   { key: 'doing', label: '진행 중', cls: 'ts-doing' },
-  { key: 'done', label: '완료', cls: 'ts-done' },
-  { key: 'blocked', label: '막힘', cls: 'ts-blocked' }
+  { key: 'done', label: '완료', cls: 'ts-done' }
 ];
 
 /* 태스크 우선순위 */
@@ -206,6 +205,7 @@ function uid() {
 }
 
 function taskStatusMeta(key) {
+  if (key === 'blocked') key = 'doing'; // 예전 '막힘' 데이터는 진행 중으로 표시
   return TASK_STATUSES.filter(function (s) { return s.key === key; })[0] || TASK_STATUSES[0];
 }
 
@@ -239,19 +239,6 @@ function sortedProjects() {
 
 function projectById(id) {
   return state.projects.filter(function (x) { return String(x.id) === String(id); })[0] || null;
-}
-
-/* 태스크 상태 뱃지: 로그인 상태면 클릭으로 다음 상태로 순환하는 버튼 */
-function taskStatusBadge(projectId, task) {
-  const m = taskStatusMeta(task.status);
-  const inner = '<span class="tbadge ' + m.cls + '">' + esc(m.label) + '</span>';
-  if (!canEdit()) return inner;
-  return (
-    '<button type="button" class="tbadge-btn" data-act="task-status" ' +
-    'data-id="' + esc(projectId) + '" data-task="' + esc(task.id) + '" title="클릭하면 상태가 바뀝니다">' +
-      '<span class="tbadge ' + m.cls + '">' + esc(m.label) + '</span>' +
-    '</button>'
-  );
 }
 
 function priorityBadge(key) {
@@ -1341,51 +1328,78 @@ function pageProjectDetail(id) {
 
   const total = tasksOf(p).length;
 
-  /* 우선순위(높음→낮음) → 마감일 순, 완료는 항상 아래로 */
+  /* 칸 안 정렬: 마감이 빠른 순(마감 없음은 아래) → 같으면 우선순위(높음→낮음) */
   const prRank = { high: 0, mid: 1, low: 2, '': 3 };
-  const tasks = tasksOf(p).slice().sort(function (a, b) {
-    const ad = a.status === 'done';
-    const bd = b.status === 'done';
-    if (ad !== bd) return ad ? 1 : -1;
-    const ra = prRank[a.priority || ''];
-    const rb = prRank[b.priority || ''];
-    if (ra !== rb) return ra - rb;
-    if (!a.due && !b.due) return 0;
-    if (!a.due) return 1;
-    if (!b.due) return -1;
-    return a.due < b.due ? -1 : 1;
-  });
+  const byDueThenPriority = function (a, b) {
+    if (a.due !== b.due) {
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due < b.due ? -1 : 1;
+    }
+    return prRank[a.priority || ''] - prRank[b.priority || ''];
+  };
 
-  const rows = tasks
-    .map(function (t) {
+  /* 칸 이동 버튼: 진행 전 ↔ 진행 중 ↔ 완료 */
+  const MOVES = {
+    todo: [['doing', '진행 중 →']],
+    doing: [['todo', '← 진행 전'], ['done', '완료 →']],
+    done: [['doing', '← 진행 중']]
+  };
+
+  const card = function (t, col) {
+    let due = '';
+    if (t.due) {
       const d = dday(t.due);
-      let dueCell;
-      if (!t.due) {
-        dueCell = '<span class="cell-muted">—</span>';
+      if (col === 'done' || d === null) {
+        due = '<span class="task-due">' + esc(t.due.slice(5).replace('-', '/')) + '</span>';
       } else {
-        const label = d === null ? '' : d < 0 ? '지남' : d === 0 ? 'D-DAY' : 'D-' + d;
-        const cls = d !== null && d >= 0 && d <= 3 && t.status !== 'done' ? 'badge badge-urgent' : 'badge';
-        dueCell =
-          '<div class="nowrap">' + esc(t.due) + '</div>' +
-          (t.status === 'done' ? '' : '<span class="' + cls + '" style="margin-top:4px">' + label + '</span>');
+        const label = d < 0 ? '지남' : d === 0 ? 'D-DAY' : 'D-' + d;
+        due =
+          '<span class="task-due' + (d <= 3 ? ' is-urgent' : '') + '">' +
+            esc(t.due.slice(5).replace('-', '/')) + ' · ' + label +
+          '</span>';
       }
-      return (
-        '<tr class="' + (t.status === 'done' ? 'task-done' : '') + '">' +
-          '<td class="cell-strong">' + esc(t.title) + '</td>' +
-          '<td class="nowrap">' + taskStatusBadge(p.id, t) + '</td>' +
-          '<td class="nowrap">' + priorityBadge(t.priority) + '</td>' +
-          '<td class="nowrap">' + dueCell + '</td>' +
-          '<td class="cell-memo">' + esc(t.memo || '') + '</td>' +
-          (canEdit()
-            ? '<td class="nowrap"><div class="row-actions">' +
-                btn('task-edit', '수정', { data: { id: p.id, task: t.id } }) +
-                btn('task-del', '삭제', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
-              '</div></td>'
-            : '') +
-        '</tr>'
-      );
-    })
-    .join('');
+    }
+
+    const actions = canEdit()
+      ? '<div class="task-card-actions">' +
+          MOVES[col].map(function (m) {
+            return btn('task-move', m[1], { data: { id: p.id, task: t.id, to: m[0] }, cls: 'btn-sm btn-quiet' });
+          }).join('') +
+          '<span class="spacer"></span>' +
+          btn('task-edit', '수정', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
+          btn('task-del', '삭제', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
+        '</div>'
+      : '';
+
+    return (
+      '<div class="task-card' + (col === 'done' ? ' is-done' : '') + '">' +
+        '<div class="task-card-title">' + esc(t.title) + '</div>' +
+        ((t.priority || due)
+          ? '<div class="task-card-meta">' + (t.priority ? priorityBadge(t.priority) : '') + due + '</div>'
+          : '') +
+        (t.memo ? '<p class="task-card-memo">' + esc(t.memo) + '</p>' : '') +
+        actions +
+      '</div>'
+    );
+  };
+
+  const columns = TASK_STATUSES.map(function (s) {
+    const items = tasksOf(p)
+      .filter(function (t) { return taskStatusMeta(t.status).key === s.key; })
+      .sort(byDueThenPriority);
+    return (
+      '<section class="task-col">' +
+        '<h3 class="task-col-head">' + esc(s.label) + ' <span class="column-count">' + items.length + '</span></h3>' +
+        items.map(function (t) { return card(t, s.key); }).join('') +
+        (items.length || canEdit() ? '' : '<div class="task-col-empty">비어 있음</div>') +
+        (canEdit()
+          ? '<button type="button" class="task-col-add" data-act="task-add" data-id="' + esc(p.id) +
+            '" data-status="' + s.key + '">+ 여기에 추가</button>'
+          : '') +
+      '</section>'
+    );
+  }).join('');
 
   return (
     '<a class="back-link" href="#/projects">' + ICONS.back + ' 프로젝트 관리</a>' +
@@ -1419,20 +1433,7 @@ function pageProjectDetail(id) {
         : '') +
     '</div>' +
 
-    (total
-      ? '<div class="table-wrap"><table class="tbl">' +
-          '<thead><tr>' +
-            '<th style="min-width:200px">태스크</th>' +
-            '<th style="width:92px">상태</th>' +
-            '<th style="width:80px">우선순위</th>' +
-            '<th style="width:110px">마감일</th>' +
-            '<th style="width:220px">메모</th>' +
-            (canEdit() ? '<th style="width:92px"></th>' : '') +
-          '</tr></thead>' +
-          '<tbody>' + rows + '</tbody>' +
-        '</table></div>'
-      : '<div class="empty">아직 태스크가 없습니다.' +
-        (canEdit() ? ' [+ 태스크 추가]로 하나씩 채워보세요.' : '') + '</div>')
+    '<div class="task-board">' + columns + '</div>'
   );
 }
 
@@ -1969,19 +1970,15 @@ async function handleAction(el) {
   }
 
   /* ---- 태스크 (프로젝트 안의 jsonb 배열) ---- */
-  if (act === 'task-status') {
+  if (act === 'task-move') {
     const p = projectsApi.get(id);
     if (!p) return;
     const taskId = el.getAttribute('data-task');
     const task = tasksOf(p).filter(function (t) { return t.id === taskId; })[0];
     if (!task) return;
 
-    const order = TASK_STATUSES.map(function (s) { return s.key; });
-    const cur = order.indexOf(task.status);
     const prev = task.status;
-    const next = order[(cur + 1) % order.length];
-
-    task.status = next; // 낙관적 업데이트
+    task.status = el.getAttribute('data-to'); // 낙관적 업데이트
     render();
     try {
       await projectsApi.update(id, { tasks: tasksOf(p) });
@@ -1999,7 +1996,10 @@ async function handleAction(el) {
     openForm({
       title: '태스크 추가',
       fields: taskFields(),
-      values: { status: '진행 전', priority: '—' },
+      values: {
+        status: taskStatusMeta(el.getAttribute('data-status') || 'todo').label,
+        priority: '—'
+      },
       onSubmit: async function (v) {
         const task = {
           id: uid(),
