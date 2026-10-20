@@ -1339,13 +1339,6 @@ function pageProjectDetail(id) {
     return prRank[a.priority || ''] - prRank[b.priority || ''];
   };
 
-  /* 칸 이동 버튼: 진행 전 ↔ 진행 중 ↔ 완료 */
-  const MOVES = {
-    todo: [['doing', '진행 중 →']],
-    doing: [['todo', '← 진행 전'], ['done', '완료 →']],
-    done: [['doing', '← 진행 중']]
-  };
-
   const card = function (t, col) {
     let due = '';
     if (t.due) {
@@ -1363,9 +1356,13 @@ function pageProjectDetail(id) {
 
     const actions = canEdit()
       ? '<div class="task-card-actions">' +
-          MOVES[col].map(function (m) {
-            return btn('task-move', m[1], { data: { id: p.id, task: t.id, to: m[0] }, cls: 'btn-sm btn-quiet' });
-          }).join('') +
+          /* 상태 변경: 고르면 바로 그 칸으로 이동 (click 위임과 겹치지 않게 data-change-act 사용) */
+          '<select class="task-status-select" data-change-act="task-move" data-id="' + esc(p.id) +
+            '" data-task="' + esc(t.id) + '" aria-label="상태 변경">' +
+            TASK_STATUSES.map(function (s) {
+              return '<option value="' + s.key + '"' + (s.key === col ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+            }).join('') +
+          '</select>' +
           '<span class="spacer"></span>' +
           btn('task-edit', '수정', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
           btn('task-del', '삭제', { data: { id: p.id, task: t.id }, cls: 'btn-sm btn-quiet' }) +
@@ -1612,7 +1609,7 @@ async function toggleGoal(id) {
 }
 
 async function handleAction(el) {
-  const act = el.getAttribute('data-act');
+  const act = el.getAttribute('data-act') || el.getAttribute('data-change-act');
   const id = el.getAttribute('data-id');
 
   /* ---- 인증 ---- */
@@ -1977,8 +1974,10 @@ async function handleAction(el) {
     const task = tasksOf(p).filter(function (t) { return t.id === taskId; })[0];
     if (!task) return;
 
+    const to = el.value || el.getAttribute('data-to');
     const prev = task.status;
-    task.status = el.getAttribute('data-to'); // 낙관적 업데이트
+    if (!to || taskStatusMeta(prev).key === to) return;
+    task.status = to; // 낙관적 업데이트
     render();
     try {
       await projectsApi.update(id, { tasks: tasksOf(p) });
@@ -2163,6 +2162,12 @@ function render() {
 }
 
 /* ---------- 이벤트 위임 ---------- */
+/* 선택 상자(상태 변경 등)는 click 이 아니라 change 로 처리 */
+document.addEventListener('change', function (e) {
+  const el = e.target.closest('[data-change-act]');
+  if (el) handleAction(el);
+});
+
 document.addEventListener('click', function (e) {
   const actEl = e.target.closest('[data-act]');
   if (actEl) {
