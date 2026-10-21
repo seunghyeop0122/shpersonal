@@ -1399,3 +1399,12 @@ table.tbl tbody tr.clickable:hover { background: var(--hover-bg); }
 .home-proj-head { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
 .section-link { color: inherit; text-decoration: none; }
 .section-link:hover { text-decoration: underline; }
+
+/* 사이드바: 하위 페이지가 있는 카테고리의 펼침 표시 */
+.nav-caret {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+  transition: transform 0.12s ease;
+}
+.nav-caret.is-open { transform: rotate(90deg); }

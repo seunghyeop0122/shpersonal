@@ -533,6 +533,9 @@ function isActive(route, hash) {
   return hash === route;
 }
 
+/* 사이드바에서 접어 둔 카테고리 (route → true). 새로고침하면 초기화 */
+const navCollapsed = {};
+
 function renderNav(hash) {
   let html = '';
   navConfig().forEach(function (item) {
@@ -547,13 +550,18 @@ function renderNav(hash) {
       (item.route === '#/companies' && hash.indexOf('#/company/') === 0) ||
       (item.route === '#/projects' && hash.indexOf('#/project/') === 0);
 
+    const hasChildren = !!(item.children && item.children.length);
+    const open = hasChildren && parentActive && !navCollapsed[item.route];
+
     html +=
-      '<a class="nav-item' + (exactParent ? ' is-active' : '') + '" href="' + item.route + '">' +
+      '<a class="nav-item' + (exactParent ? ' is-active' : '') + '" href="' + item.route + '"' +
+        (hasChildren ? ' data-nav-parent="' + esc(item.route) + '"' : '') + '>' +
         '<span class="ico">' + item.icon + '</span>' +
         '<span class="label">' + esc(item.label) + '</span>' +
+        (hasChildren ? '<span class="nav-caret' + (open ? ' is-open' : '') + '" aria-hidden="true">▸</span>' : '') +
       '</a>';
 
-    if (item.children && parentActive) {
+    if (open) {
       item.children.forEach(function (child) {
         const on = hash === child.route;
         html +=
@@ -2280,6 +2288,21 @@ document.addEventListener('change', function (e) {
 });
 
 document.addEventListener('click', function (e) {
+  /* 사이드바 카테고리: 이미 그 화면이면 펼침/접힘 토글, 다른 화면이면 이동하면서 펼침 */
+  const navParent = e.target.closest('[data-nav-parent]');
+  if (navParent) {
+    const route = navParent.getAttribute('data-nav-parent');
+    const hash = location.hash || '#/home';
+    if (hash === route) {
+      e.preventDefault();
+      navCollapsed[route] = !navCollapsed[route];
+      renderNav(hash);
+    } else {
+      navCollapsed[route] = false;
+    }
+    return;
+  }
+
   const actEl = e.target.closest('[data-act]');
   if (actEl) {
     e.preventDefault();
