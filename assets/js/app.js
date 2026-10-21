@@ -20,6 +20,7 @@ import {
   companiesApi,
   projectsApi,
   snsPostsApi,
+  industriesApi,
   saveIndustry,
   industryByName
 } from './store.js';
@@ -1102,7 +1103,8 @@ function pageIndustries() {
   const list = items
     .map(function (name) {
       const count = state.companies.filter(function (c) { return c.industry === name; }).length;
-      const written = industryByName(name) ? '작성됨' : '작성 전';
+      const row = industryByName(name);
+      const written = row && (row.overview || row.trends || row.comparison || row.implications) ? '작성됨' : '작성 전';
       return (
         '<a class="card-link" href="#/industry/' + encodeURIComponent(name) + '">' +
           '<span>' +
@@ -1119,10 +1121,13 @@ function pageIndustries() {
     pageHead(
       '산업 분석',
       '산업군',
-      '지원 회사에 등록된 산업군에서 자동으로 생성됩니다. 새 산업군을 쓰면 이 목록과 사이드바에 자동으로 추가됩니다.'
+      '직접 추가한 산업과 지원 회사에 쓰인 산업이 함께 모입니다. 지원 회사의 산업군은 이 목록에서 고릅니다.',
+      btn('ind-add', '+ 산업 추가', { cls: 'btn-primary btn-sm' })
     ) +
     banner() +
-    (items.length ? '<div class="card-link-list">' + list + '</div>' : '<div class="empty">등록된 산업군이 없습니다.</div>')
+    (items.length
+      ? '<div class="card-link-list">' + list + '</div>'
+      : '<div class="empty">등록된 산업군이 없습니다.' + (canEdit() ? ' [+ 산업 추가]로 시작해 보세요.' : '') + '</div>')
   );
 }
 
@@ -1176,7 +1181,11 @@ function pageIndustryDetail(name) {
         '<div class="page-label">산업 분석</div>' +
         '<h1 class="page-title">' + esc(name) + '</h1>' +
       '</div>' +
-      '<div class="page-actions">' + btn('ind-edit', '분석 수정', { data: { name: name } }) + '</div>' +
+      '<div class="page-actions">' +
+        btn('ind-edit', '분석 수정', { data: { name: name } }) +
+        btn('ind-rename', '이름 수정', { data: { name: name } }) +
+        btn('ind-del', '삭제', { data: { name: name }, cls: 'btn-sm btn-quiet' }) +
+      '</div>' +
     '</div>' +
     '<p class="page-desc">등록 기업 ' + members.length + '개</p>' +
 
@@ -1580,7 +1589,10 @@ function statusOptions() {
 function companyFields() {
   return [
     { name: 'name', label: '회사명', required: true },
-    { name: 'industry', label: '산업군', datalist: allIndustries(), placeholder: '예: IT, 금융' },
+    {
+      name: 'industry', label: '산업군', type: 'select', options: [''].concat(allIndustries()),
+      hint: '목록에 없는 산업은 [산업 분석]에서 먼저 추가하세요.'
+    },
     { name: 'scale', label: '규모', type: 'select', options: [''].concat(SCALES) },
     { name: 'status', label: '진행상태', type: 'select', options: statusOptions() },
     { name: 'position', label: '지원 직무' }
@@ -1920,6 +1932,73 @@ async function handleAction(el) {
   }
 
   /* ---- 산업 분석 ---- */
+  /* ---- 산업 분석: 직접 추가 / 이름 수정 / 삭제 ---- */
+  if (act === 'ind-add') {
+    openForm({
+      title: '산업 추가',
+      fields: [{ name: 'name', label: '산업 이름', required: true, placeholder: '예: 반도체, 2차전지' }],
+      onSubmit: async function (v) {
+        const name = String(v.name || '').trim();
+        if (!name) throw new Error('산업 이름을 입력하세요.');
+        if (allIndustries().indexOf(name) !== -1) throw new Error('이미 있는 산업입니다.');
+        await saveIndustry(name, {});
+        location.hash = '#/industry/' + encodeURIComponent(name);
+        render();
+        toast('산업을 추가했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'ind-rename') {
+    const oldName = el.getAttribute('data-name');
+    openForm({
+      title: '산업 이름 수정',
+      fields: [{
+        name: 'name', label: '산업 이름', required: true,
+        hint: '이 산업을 쓰는 지원 회사의 산업군도 함께 바뀝니다.'
+      }],
+      values: { name: oldName },
+      onSubmit: async function (v) {
+        const name = String(v.name || '').trim();
+        if (!name) throw new Error('산업 이름을 입력하세요.');
+        if (name === oldName) return;
+        if (allIndustries().indexOf(name) !== -1) throw new Error('이미 있는 산업입니다.');
+
+        const row = industryByName(oldName);
+        if (row) await industriesApi.update(row.id, { name: name });
+        else await industriesApi.create({ name: name });
+        await Promise.all(
+          state.companies
+            .filter(function (c) { return c.industry === oldName; })
+            .map(function (c) { return companiesApi.update(c.id, { industry: name }); })
+        );
+        location.hash = '#/industry/' + encodeURIComponent(name);
+        render();
+        toast('이름을 바꿨습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'ind-del') {
+    const name = el.getAttribute('data-name');
+    const users = state.companies.filter(function (c) { return c.industry === name; });
+    openConfirm(
+      '"' + name + '" 산업을 삭제할까요? 분석 내용이 지워지고' +
+        (users.length ? ', 이 산업을 쓰는 지원 회사 ' + users.length + '곳의 산업군은 비워집니다.' : '.'),
+      async function () {
+        const row = industryByName(name);
+        if (row) await industriesApi.remove(row.id);
+        await Promise.all(users.map(function (c) { return companiesApi.update(c.id, { industry: '' }); }));
+        location.hash = '#/industries';
+        render();
+        toast('삭제했습니다.');
+      }
+    );
+    return;
+  }
+
   if (act === 'ind-edit') {
     const name = el.getAttribute('data-name');
     const data = industryByName(name) || {};
