@@ -955,7 +955,7 @@ function pageCompanies() {
           '<td class="cell-muted nowrap">' + dash(c.industry) + '</td>' +
           '<td class="cell-muted nowrap">' + dash(c.scale) + '</td>' +
           '<td class="nowrap">' + statusBadge(c.status) + '</td>' +
-          '<td class="cell-muted nowrap">' + dash(c.schedule && c.schedule.interview) + '</td>' +
+          '<td class="cell-muted">' + dash(c.position) + '</td>' +
           (canEdit()
             ? '<td class="nowrap"><div class="row-actions">' +
                 btn('co-edit', '수정', { data: { id: c.id } }) +
@@ -987,7 +987,7 @@ function pageCompanies() {
     (list.length
       ? '<div class="table-wrap"><table class="tbl">' +
           '<thead><tr>' +
-            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>면접일</th>' +
+            '<th>회사명</th><th>산업군</th><th>규모</th><th>진행상태</th><th>지원 직무</th>' +
             (canEdit() ? '<th style="width:96px"></th>' : '') +
           '</tr></thead>' +
           '<tbody>' + rows + '</tbody>' +
