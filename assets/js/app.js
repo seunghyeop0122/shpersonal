@@ -20,6 +20,7 @@ import {
   companiesApi,
   projectsApi,
   snsPostsApi,
+  notesApi,
   industriesApi,
   saveIndustry,
   industryByName
@@ -79,6 +80,8 @@ const ICONS = {
   industry: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l6 4V10l6 4V6l4-2v16z"/></svg>',
   goals: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
   projects: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M7.5 13h5M7.5 16.5h8"/></svg>',
+  stock: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg>',
+  idea: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>',
   sns: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h6L17 3v13l-5.5-3h-6A2.5 2.5 0 0 1 3 10.5z"/><path d="M20 8c1 1.2 1 4.8 0 6"/></svg>',
   dot: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12"/></svg>',
   back: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
@@ -518,7 +521,10 @@ function navConfig() {
     { label: '목표 관리', route: '#/goals', icon: ICONS.goals, children: goalChildren },
     { label: '프로젝트 관리', route: '#/projects', icon: ICONS.projects, children: projectChildren },
     { group: '샤홍슈' },
-    { label: 'SNS 기획', route: '#/sns', icon: ICONS.sns, children: snsChildren }
+    { label: 'SNS 기획', route: '#/sns', icon: ICONS.sns, children: snsChildren },
+    { group: '기록' },
+    { label: NOTE_KINDS.stock.label, route: '#/notes/stock', icon: ICONS.stock },
+    { label: NOTE_KINDS.idea.label, route: '#/notes/idea', icon: ICONS.idea }
   ];
 }
 
@@ -844,6 +850,64 @@ function pageJobFeed() {
           '<tbody>' + rows + '</tbody>' +
         '</table></div>'
       : '<div class="empty">' + esc(empty) + '</div>')
+  );
+}
+
+/* =========================================================
+   페이지: 기록 노트 (주식 / 잡생각 + 아이디어)
+   날짜 · 제목 · 내용만 있는 간단한 기록. 최신 날짜가 위로.
+   ========================================================= */
+const NOTE_KINDS = {
+  stock: { label: '주식', desc: '종목, 시황, 매매 기록을 날짜별로 남깁니다.' },
+  idea: { label: '잡생각 + 아이디어', desc: '떠오른 생각과 아이디어를 날짜별로 남깁니다.' }
+};
+
+function noteFields() {
+  return [
+    { name: 'date', label: '날짜', type: 'date', required: true },
+    { name: 'title', label: '제목', required: true },
+    { name: 'body', label: '내용', type: 'textarea', rows: 10 }
+  ];
+}
+
+function pageNotes(kind) {
+  const meta = NOTE_KINDS[kind];
+  if (!meta) {
+    return '<div class="page-label">404</div><h1 class="page-title">페이지를 찾을 수 없습니다</h1>';
+  }
+
+  const list = state.notes
+    .filter(function (n) { return n.kind === kind; })
+    .sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (a.createdAt || '') < (b.createdAt || '') ? 1 : -1;
+    });
+
+  const items = list.map(function (n) {
+    return (
+      '<article class="note-item">' +
+        '<div class="note-item-top">' +
+          '<span class="note-item-date">' + esc(fmtDate(n.date)) + '</span>' +
+          '<span class="note-item-title">' + esc(n.title) + '</span>' +
+          (canEdit()
+            ? '<span class="goal-controls">' +
+                btn('memo-edit', '수정', { data: { id: n.id } }) +
+                btn('memo-del', '삭제', { data: { id: n.id }, cls: 'btn-sm btn-quiet' }) +
+              '</span>'
+            : '') +
+        '</div>' +
+        (n.body ? '<p class="note-item-body">' + esc(n.body) + '</p>' : '') +
+      '</article>'
+    );
+  }).join('');
+
+  return (
+    pageHead('기록', meta.label, meta.desc,
+      btn('memo-add', '+ 기록 추가', { data: { kind: kind }, cls: 'btn-primary btn-sm' })) +
+    banner() +
+    (list.length
+      ? '<div class="note-list">' + items + '</div>'
+      : '<div class="empty">아직 기록이 없습니다.' + (canEdit() ? ' [+ 기록 추가]로 첫 기록을 남겨보세요.' : '') + '</div>')
   );
 }
 
@@ -1743,6 +1807,49 @@ async function handleAction(el) {
     return;
   }
 
+  /* ---- 기록 노트 (주식 / 잡생각 + 아이디어) ---- */
+  if (act === 'memo-add') {
+    const kind = el.getAttribute('data-kind');
+    openForm({
+      title: (NOTE_KINDS[kind] ? NOTE_KINDS[kind].label + ' ' : '') + '기록 추가',
+      fields: noteFields(),
+      values: { date: todayStr() },
+      onSubmit: async function (v) {
+        await notesApi.create({ kind: kind, date: v.date, title: v.title, body: v.body });
+        render();
+        toast('기록을 추가했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'memo-edit') {
+    const n = notesApi.get(id);
+    if (!n) return;
+    openForm({
+      title: '기록 수정',
+      fields: noteFields(),
+      values: { date: fmtDate(n.date), title: n.title, body: n.body },
+      onSubmit: async function (v) {
+        await notesApi.update(id, { date: v.date, title: v.title, body: v.body });
+        render();
+        toast('저장했습니다.');
+      }
+    });
+    return;
+  }
+
+  if (act === 'memo-del') {
+    const n = notesApi.get(id);
+    if (!n) return;
+    openConfirm('"' + n.title + '" 기록을 삭제할까요?', async function () {
+      await notesApi.remove(id);
+      render();
+      toast('삭제했습니다.');
+    });
+    return;
+  }
+
   /* ---- 공고 피드 → 관심 공고 저장 ---- */
   if (act === 'posting-save') {
     const p = state.jobPostings.filter(function (x) { return String(x.id) === String(id); })[0];
@@ -2264,6 +2371,8 @@ function render() {
     html = pageProjects();
   } else if (hash.indexOf('#/project/') === 0) {
     html = pageProjectDetail(decodeURIComponent(hash.slice('#/project/'.length)));
+  } else if (hash.indexOf('#/notes/') === 0) {
+    html = pageNotes(hash.slice('#/notes/'.length));
   } else if (hash === '#/sns') {
     html = pageSns(null);
   } else if (hash.indexOf('#/sns/') === 0) {

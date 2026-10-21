@@ -20,6 +20,7 @@ export const state = {
   projects: [],
   snsPosts: [],
   jobPostings: [],
+  notes: [],
   notice: ''
 };
 
@@ -86,6 +87,10 @@ function seedSnsPosts() {
   return typeof SNS_POSTS !== 'undefined'
     ? SNS_POSTS.map(function (p) { return JSON.parse(JSON.stringify(p)); })
     : [];
+}
+
+function seedNotes() {
+  return typeof NOTES !== 'undefined' ? NOTES.map(function (n) { return Object.assign({}, n); }) : [];
 }
 
 function seedJobPostings() {
@@ -249,6 +254,27 @@ const map = {
     }
   },
 
+  notes: {
+    in: function (r) {
+      return {
+        id: r.id,
+        kind: r.kind,
+        date: r.note_date || '',
+        title: r.title || '',
+        body: r.body || '',
+        createdAt: r.created_at || ''
+      };
+    },
+    out: function (n) {
+      const out = {};
+      if ('kind' in n) out.kind = n.kind;
+      if ('date' in n) out.note_date = n.date ? n.date : null;
+      if ('title' in n) out.title = n.title;
+      if ('body' in n) out.body = n.body || '';
+      return out;
+    }
+  },
+
   /* 자동 수집 공고 — 사이트에서는 읽기만 합니다(쓰기는 수집 스크립트) */
   job_postings: {
     in: function (r) {
@@ -332,7 +358,8 @@ export async function reload() {
         sb.from('industries').select('*').order('created_at', { ascending: true }),
         sb.from('projects').select('*').order('created_at', { ascending: true }),
         sb.from('sns_posts').select('*').order('plan_date', { ascending: true }),
-        sb.from('job_postings').select('*').order('deadline', { ascending: true })
+        sb.from('job_postings').select('*').order('deadline', { ascending: true }),
+        sb.from('notes').select('*').order('note_date', { ascending: false })
       ]);
       const err = r.filter(function (x) { return x.error; })[0];
       if (err) throw err.error;
@@ -344,6 +371,7 @@ export async function reload() {
       state.projects = r[4].data.map(map.projects.in);
       state.snsPosts = r[5].data.map(map.sns_posts.in);
       state.jobPostings = r[6].data.map(map.job_postings.in);
+      state.notes = r[7].data.map(map.notes.in);
       state.source = 'supabase';
       state.notice = '';
       return;
@@ -369,6 +397,7 @@ export async function reload() {
   state.projects = seedProjects();
   state.snsPosts = seedSnsPosts();
   state.jobPostings = seedJobPostings();
+  state.notes = seedNotes();
   state.source = 'seed';
 }
 
@@ -455,6 +484,7 @@ export const companiesApi = makeApi('companies', 'companies');
 export const industriesApi = makeApi('industries', 'industries');
 export const projectsApi = makeApi('projects', 'projects');
 export const snsPostsApi = makeApi('sns_posts', 'snsPosts');
+export const notesApi = makeApi('notes', 'notes');
 
 /* 산업군 본문은 이름 기준으로 있으면 수정, 없으면 생성 */
 export async function saveIndustry(name, patch) {
